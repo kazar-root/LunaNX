@@ -41,6 +41,14 @@ library, and streams the game to the console with your controller as the input d
 - **Settings**: Amazon store, sign out, library view, server region, button layout, sound,
   volume, audio buffer, optional in-game technical overlay.
 
+## Screenshots
+
+| Luna library | In game |
+| --- | --- |
+| ![LunaNX library](docs/screenshots/Screen%20LunaNX%20v1.0%201.jpg) | ![Game streamed with LunaNX](docs/screenshots/Screen%20LunaNX%20v1.0%202.jpg) |
+| **Launching a game** | **Settings** |
+| ![Connecting to the nearest Luna server](docs/screenshots/Screen%20LunaNX%20v1.0%203.jpg) | ![LunaNX settings](docs/screenshots/Screen%20LunaNX%20v1.0%204.jpg) |
+
 ## Requirements
 
 - A Nintendo Switch able to run homebrew (custom firmware such as Atmosphère, with the
