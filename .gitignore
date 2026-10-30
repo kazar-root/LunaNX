@@ -1,0 +1,20 @@
+# Build output
+/build/
+*.elf
+*.nacp
+*.nro
+
+# Personal data from the SD card: never commit
+amazon_device.json
+cookies.txt
+cookies.json
+recent_games.json
+stream_settings.json
+*.har
+*.log
+
+# System and editors
+.DS_Store
+.vscode/
+.idea/
+__pycache__/
