@@ -1,5 +1,6 @@
 #pragma once
 
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,6 +29,12 @@ struct Game
     std::string play_token;
     std::string product_stage = "Release";
 };
+
+// Deux tuiles désignent le même jeu si leur ASIN ou leur titre normalisé (sans casse,
+// ponctuation ni symboles ™ ®) sont identiques.
+std::string NormalizedGameTitle(const std::string& title);
+// Ajoute l'ASIN et le titre normalisé du jeu à « seen » ; faux si l'un des deux y était déjà.
+bool InsertGameKeys(std::set<std::string>& seen, const Game& game);
 
 struct Shelf
 {

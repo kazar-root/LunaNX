@@ -28,6 +28,29 @@ void ApplyRadialDeadzone(float& x, float& y)
     y *= scale;
 }
 
+constexpr auto kAutoReturnDelay = std::chrono::milliseconds(1500);
+constexpr auto kMaximumLoadingIndicator = std::chrono::seconds(20);
+
+// Luminance moyenne (0-255) d'un échantillon de l'image, ou -1 si les pixels ne sont pas
+// lisibles par le processeur (images du décodeur matériel).
+int SampleLuma(const AVFrame* frame)
+{
+    const bool cpu_frame = frame->format == AV_PIX_FMT_YUV420P || frame->format == AV_PIX_FMT_YUVJ420P ||
+                           frame->format == AV_PIX_FMT_NV12;
+    if (!cpu_frame || !frame->data[0] || frame->width <= 0 || frame->height <= 0)
+        return -1;
+    constexpr int kSteps = 24;
+    long total = 0;
+    for (int row = 0; row < kSteps; ++row)
+    {
+        const uint8_t* line = frame->data[0] + static_cast<ptrdiff_t>(frame->height * (2 * row + 1) / (2 * kSteps)) *
+                                                   frame->linesize[0];
+        for (int col = 0; col < kSteps; ++col)
+            total += line[frame->width * (2 * col + 1) / (2 * kSteps)];
+    }
+    return static_cast<int>(total / (kSteps * kSteps));
+}
+
 void DrawCenteredText(NVGcontext* vg, float cx, float y, float size, NVGcolor color, const std::string& text)
 {
     nvgFontSize(vg, size);
@@ -182,12 +205,26 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         return;
     session_->poll();
 
+    // Partie terminée (par exemple « Quitter le jeu » dans le jeu) : retour à la bibliothèque.
+    const auto now = std::chrono::steady_clock::now();
+    if (session_->phase() == LunaStreamSession::Phase::Ended)
+    {
+        if (ended_at_ == std::chrono::steady_clock::time_point {})
+            ended_at_ = now;
+        else if (now - ended_at_ >= kAutoReturnDelay)
+        {
+            Exit();
+            return;
+        }
+    }
+
     // Jeu en streaming : on affiche toujours l'image la plus récente plutôt que de la caler
     // sur l'horloge du son, qui ajoutait la profondeur du tampon audio à la latence.
     bool got_frame = false;
     AVFrameHolder::instance().get(
         [this, vg, width, height, &got_frame](AVFrame* frame, uint64_t generation, bool) {
             session_->draw(vg, static_cast<int>(width), static_cast<int>(height), frame, generation);
+            UpdateGameVisibility(frame);
             got_frame = true;
         });
 
@@ -200,6 +237,10 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgFillColor(vg, nvgRGB(0, 0, 0));
         nvgFill(vg);
         DrawStatus(vg, x, y, width, height);
+    }
+    else if (!game_visible_)
+    {
+        DrawLoadingDots(vg, x + width / 2.0f, y + height - 44);
     }
     if (show_debug_)
         DrawDebugOverlay(vg, x, y, width);
@@ -216,18 +257,7 @@ void StreamView::DrawStatus(NVGcontext* vg, float x, float y, float width, float
     DrawCenteredText(vg, cx, cy - 70, 34, nvgRGB(245, 246, 248), title_);
 
     if (!failed && !ended)
-    {
-        // Petit indicateur d'activité : trois points qui pulsent.
-        const double t = brls::getCPUTimeUsec() / 1000000.0;
-        for (int i = 0; i < 3; ++i)
-        {
-            const float alpha = 0.35f + 0.65f * static_cast<float>(0.5 + 0.5 * std::sin(t * 4.0 - i * 0.7));
-            nvgBeginPath(vg);
-            nvgCircle(vg, cx - 24 + i * 24, cy - 10, 7);
-            nvgFillColor(vg, nvgRGBAf(0.63f, 0.47f, 1.0f, alpha));
-            nvgFill(vg);
-        }
-    }
+        DrawLoadingDots(vg, cx, y + height - 84);
 
     const NVGcolor status_color = failed ? nvgRGB(255, 120, 120) : nvgRGB(200, 204, 212);
     nvgFontSize(vg, 22);
@@ -240,6 +270,34 @@ void StreamView::DrawStatus(NVGcontext* vg, float x, float y, float width, float
                                 : phase == LunaStreamSession::Phase::Connecting ? "ZL + ZR + Moins : quitter"
                                                                                  : "B : annuler");
     DrawCenteredText(vg, cx, y + height - 40, 18, nvgRGB(130, 134, 145), hint);
+}
+
+void StreamView::DrawLoadingDots(NVGcontext* vg, float cx, float cy)
+{
+    // Trois petits points violets qui s'allument à tour de rôle.
+    const int active = static_cast<int>(brls::getCPUTimeUsec() / 300000) % 3;
+    for (int i = 0; i < 3; ++i)
+    {
+        nvgBeginPath(vg);
+        nvgCircle(vg, cx - 22 + i * 22, cy, 6);
+        nvgFillColor(vg, nvgRGBAf(0.63f, 0.47f, 1.0f, i == active ? 1.0f : 0.3f));
+        nvgFill(vg);
+    }
+}
+
+void StreamView::UpdateGameVisibility(const AVFrame* frame)
+{
+    if (game_visible_ || !frame)
+        return;
+    const auto now = std::chrono::steady_clock::now();
+    if (first_frame_at_ == std::chrono::steady_clock::time_point {})
+        first_frame_at_ = now;
+    const int luma = SampleLuma(frame);
+    // Au-delà de 32 (16 = noir vidéo), l'image montre du contenu. Sans pixels lisibles, ou
+    // pour un jeu très sombre, l'indicateur s'efface de lui-même après un délai.
+    if ((luma >= 0 && luma > 32) || (luma < 0 && now - first_frame_at_ > std::chrono::seconds(3)) ||
+        now - first_frame_at_ > kMaximumLoadingIndicator)
+        game_visible_ = true;
 }
 
 void StreamView::DrawDebugOverlay(NVGcontext* vg, float x, float y, float width)

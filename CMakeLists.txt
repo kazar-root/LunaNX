@@ -96,7 +96,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     z bz2)
 
 set(PROJECT_AUTHOR "KazaR-RooT")
-set(PROJECT_VERSION_STRING "1.0")
+set(PROJECT_VERSION_STRING "1.1")
 set(PROJECT_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon/icon.jpg)
 set(PROJECT_ROMFS_DIR ${CMAKE_BINARY_DIR}/romfs)
 

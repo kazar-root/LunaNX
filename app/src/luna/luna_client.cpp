@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <deque>
 #include <chrono>
 #include <functional>
 #include <memory>
@@ -249,6 +250,13 @@ Game ExtractGame(json_t* widget)
     return game;
 }
 
+// Un vrai jeu, par opposition à une tuile de collection, de genre ou de chaîne.
+bool LooksLikeGameTile(const std::string& type, const Game& game)
+{
+    return type.find("GAME") != std::string::npos || type.find("PRODUCT") != std::string::npos ||
+           !game.asin.empty() || game.page_uri.rfind("game/", 0) == 0;
+}
+
 bool CanOpen(const Game& game)
 {
     return !game.title.empty() &&
@@ -372,6 +380,55 @@ constexpr Marketplace kMarketplaces[] = {
 
 } // namespace
 
+std::string NormalizedGameTitle(const std::string& title)
+{
+    std::string out;
+    bool space = false;
+    for (size_t i = 0; i < title.size(); ++i)
+    {
+        const unsigned char c = static_cast<unsigned char>(title[i]);
+        // ™ (E2 84 A2), ® (C2 AE) et © (C2 A9) ne distinguent pas deux jeux.
+        if (c == 0xE2 && title.compare(i, 3, "\xE2\x84\xA2") == 0)
+        {
+            i += 2;
+            continue;
+        }
+        if (c == 0xC2 && i + 1 < title.size() &&
+            (static_cast<unsigned char>(title[i + 1]) == 0xAE || static_cast<unsigned char>(title[i + 1]) == 0xA9))
+        {
+            ++i;
+            continue;
+        }
+        if (std::isalnum(c) || c >= 0x80)
+        {
+            if (space && !out.empty())
+                out.push_back(' ');
+            space = false;
+            out.push_back(static_cast<char>(std::tolower(c)));
+        }
+        else
+        {
+            space = true;
+        }
+    }
+    return out;
+}
+
+bool InsertGameKeys(std::set<std::string>& seen, const Game& game)
+{
+    const std::string asin = game.asin.empty() ? std::string() : "a:" + game.asin;
+    const std::string title = NormalizedGameTitle(game.title);
+    const std::string title_key = title.empty() ? std::string() : "t:" + title;
+    if (asin.empty() && title_key.empty())
+        return false;
+    const bool known = (!asin.empty() && seen.count(asin)) || (!title_key.empty() && seen.count(title_key));
+    if (!asin.empty())
+        seen.insert(asin);
+    if (!title_key.empty())
+        seen.insert(title_key);
+    return !known;
+}
+
 std::string MakeGamePageUri(const std::string& title, const std::string& asin)
 {
     std::string slug;
@@ -436,11 +493,19 @@ bool LunaClient::SetContentLanguage(const std::string& language)
     if (market_locale_.empty())
         market_locale_ = account_.locale;
     const std::string& country = account_.country;
+    // Luna ne propose que ses langues de boutique ; pour les autres (portugais, russe,
+    // chinois), le catalogue et les jeux restent dans la langue de la boutique.
     std::string locale = market_locale_;
     if (language == "en")
         locale = country == "US" ? "en_US" : country == "CA" ? "en_CA" : "en_GB";
-    else if (language == "fr" && (country == "FR" || country == "CA"))
+    else if (language == "fr")
         locale = country == "CA" ? "fr_CA" : "fr_FR";
+    else if (language == "de")
+        locale = "de_DE";
+    else if (language == "es")
+        locale = "es_ES";
+    else if (language == "it")
+        locale = "it_IT";
     account_.locale = locale;
     return locale != market_locale_;
 }
@@ -720,6 +785,13 @@ std::vector<Shelf> LunaClient::FetchShelves() const
     std::vector<Pending> pending;
     constexpr size_t kMaximumDetailFetches = 40;
     std::set<std::string> seen_tokens;
+    std::vector<std::string> links;
+    std::set<std::string> link_set;
+    auto remember_link = [&](json_t* widget) {
+        const std::string token = FirstActionToken(widget);
+        if (!token.empty() && link_set.insert(token).second)
+            links.push_back(token);
+    };
 
     auto collect = [&](json_t* page, const std::string& tab_title) {
         DecodeEmbeddedJson(page);
@@ -734,6 +806,7 @@ std::vector<Shelf> LunaClient::FetchShelves() const
             const std::string row_type = Str(row, "type");
             if (IsIgnoredWidgetType(row_type) || row_type.find("FOOTER") != std::string::npos)
                 continue;
+            remember_link(row);
             Shelf shelf;
             shelf.title = RowTitle(row, tab_title);
             shelf.row_type = row_type;
@@ -743,14 +816,27 @@ std::vector<Shelf> LunaClient::FetchShelves() const
             json_array_foreach(json_object_get(row, "widgets"), index, child)
             {
                 const std::string type = Str(child, "type");
-                if (IsIgnoredWidgetType(type) || type.find("GENRE") != std::string::npos ||
-                    type.find("BANNER") != std::string::npos || type.find("EMPTY") != std::string::npos ||
-                    type.find("BUTTON") != std::string::npos)
+                if (IsIgnoredWidgetType(type))
                     continue;
+                // « Tout voir », genres, bannières : pages à explorer, pas des jeux.
+                if (type.find("GENRE") != std::string::npos || type.find("BANNER") != std::string::npos ||
+                    type.find("EMPTY") != std::string::npos || type.find("BUTTON") != std::string::npos)
+                {
+                    remember_link(child);
+                    continue;
+                }
                 json_t* nested = json_object_get(child, "widgets");
                 if (json_is_array(nested) && json_array_size(nested) > 0)
+                {
+                    remember_link(child);
                     continue;
+                }
                 Game game = ExtractGame(child);
+                if (!LooksLikeGameTile(type, game))
+                {
+                    remember_link(child);
+                    continue;
+                }
                 const std::string key = !game.detail_service_token.empty() ? game.detail_service_token
                                       : !game.asin.empty() ? game.asin : game.title;
                 if (key.empty() || !seen_tokens.insert(shelf.title + "|" + key).second)
@@ -793,13 +879,30 @@ std::vector<Shelf> LunaClient::FetchShelves() const
             tabs.emplace_back(label, token);
     });
 
-    for (size_t i = 0; i < tabs.size() && i < 6; ++i)
+    for (size_t i = 0; i < tabs.size(); ++i)
     {
+        // Au-delà des premiers onglets, l'exploration en arrière-plan prend le relais.
+        if (i >= 6)
+        {
+            if (link_set.insert(tabs[i].second).second)
+                links.push_back(tabs[i].second);
+            continue;
+        }
         try
         {
             auto page = Adopt(GetPage(nullptr, tabs[i].second));
             const std::string page_type = Str(json_object_get(page.get(), "pageContext"), "pageType");
-            if (page_type == "landing_search" || page_type == "landing_remote_play" || page_type == "landing_about")
+            if (page_type == "landing_search")
+            {
+                // La recherche n'a pas de rangées de jeux mais liste les genres : à explorer.
+                DecodeEmbeddedJson(page.get());
+                Walk(page.get(), [&](json_t* node) {
+                    if (!IsIgnoredWidgetType(Str(node, "type")))
+                        remember_link(node);
+                });
+                continue;
+            }
+            if (page_type == "landing_remote_play" || page_type == "landing_about")
                 continue;
             collect(page.get(), TabTitle(page_type, tabs[i].first));
         }
@@ -851,10 +954,115 @@ std::vector<Shelf> LunaClient::FetchShelves() const
                                  [](const Shelf& sh) { return sh.games.empty(); }),
                   shelves.end());
 
+    {
+        std::lock_guard<std::mutex> lock(catalog_links_mutex_);
+        catalog_links_ = links;
+    }
     LogRuntimeEvent("luna", "catalog", "tabs=" + std::to_string(tabs.size()) +
                     " shelves=" + std::to_string(shelves.size()) + " games=" + std::to_string(total) +
-                    " detailFetches=" + std::to_string(pending.size()));
+                    " detailFetches=" + std::to_string(pending.size()) +
+                    " links=" + std::to_string(links.size()));
     return shelves;
+}
+
+void LunaClient::ExploreCatalog(std::set<std::string> known,
+                                const std::function<void(std::vector<Game>)>& on_games,
+                                const std::function<bool()>& keep_going) const
+{
+    // Plafond : chaque page pèse jusqu'à quelques centaines de Ko et prend ~0,5 s.
+    constexpr int kMaximumPages = 60;
+    std::deque<std::string> queue;
+    std::set<std::string> queued;
+    {
+        std::lock_guard<std::mutex> lock(catalog_links_mutex_);
+        for (const auto& token : catalog_links_)
+            if (queued.insert(token).second)
+                queue.push_back(token);
+    }
+    auto enqueue = [&](json_t* widget) {
+        const std::string token = FirstActionToken(widget);
+        if (!token.empty() && queued.insert(token).second)
+            queue.push_back(token);
+    };
+
+    std::set<std::string> visited_pages;
+    int pages = 0;
+    size_t found = 0;
+    while (!queue.empty() && pages < kMaximumPages && keep_going())
+    {
+        const std::string token = queue.front();
+        queue.pop_front();
+        ++pages;
+        try
+        {
+            auto page = Adopt(GetPage(nullptr, token));
+            json_t* root = page.get();
+            DecodeEmbeddedJson(root);
+            json_t* context = json_object_get(root, "pageContext");
+            const std::string page_type = Str(context, "pageType");
+            const std::string page_id = Str(context, "pageId");
+            if (!page_id.empty() && !visited_pages.insert(page_type + "|" + page_id).second)
+                continue;
+            // Fiche d'un jeu : ses rangées « jeux similaires » feraient exploser l'exploration.
+            bool detail_page = false;
+            Walk(root, [&](json_t* node) {
+                if (Str(node, "type") == "PRODUCT_DETAIL")
+                    detail_page = true;
+            });
+            if (detail_page)
+                continue;
+
+            std::vector<Game> batch;
+            const size_t queued_before = queue.size();
+            Walk(root, [&](json_t* node) {
+                json_t* widgets = json_object_get(node, "widgets");
+                if (!json_is_array(widgets) || IsIgnoredWidgetType(Str(node, "type")))
+                    return;
+                enqueue(node);
+                size_t index = 0;
+                json_t* child = nullptr;
+                json_array_foreach(widgets, index, child)
+                {
+                    const std::string type = Str(child, "type");
+                    if (IsIgnoredWidgetType(type))
+                        continue;
+                    json_t* nested = json_object_get(child, "widgets");
+                    if (json_is_array(nested) && json_array_size(nested) > 0)
+                    {
+                        enqueue(child);
+                        continue;
+                    }
+                    Game game = ExtractGame(child);
+                    const bool playable = LooksLikeGameTile(type, game) && CanOpen(game) &&
+                                          (!game.image_portrait.empty() || !game.image_landscape.empty());
+                    if (!playable)
+                    {
+                        enqueue(child);
+                        continue;
+                    }
+                    if (InsertGameKeys(known, game))
+                        batch.push_back(std::move(game));
+                }
+            });
+            LogRuntimeEvent("luna", "explore_page",
+                            "type=" + page_type + " newGames=" + std::to_string(batch.size()) +
+                                " newLinks=" + std::to_string(queue.size() - queued_before));
+            found += batch.size();
+            if (!batch.empty())
+                on_games(std::move(batch));
+        }
+        catch (const SignInRequired&)
+        {
+            return;
+        }
+        catch (const LunaError& ex)
+        {
+            LogRuntimeEvent("luna", "explore_failed", ex.what());
+        }
+    }
+    LogRuntimeEvent("luna", "explore_done",
+                    "pages=" + std::to_string(pages) + " newGames=" + std::to_string(found) +
+                        " remainingLinks=" + std::to_string(queue.size()));
 }
 
 Game LunaClient::FetchGameDetail(const Game& input) const

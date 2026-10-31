@@ -7,6 +7,8 @@
 
 #include <borealis.hpp>
 
+struct AVFrame;
+
 #include <chrono>
 #include <memory>
 
@@ -28,12 +30,18 @@ class StreamView : public brls::Box
     void HandleInput(const brls::ControllerState& state);
     void DrawStatus(NVGcontext* vg, float x, float y, float width, float height);
     void DrawDebugOverlay(NVGcontext* vg, float x, float y, float width);
+    void DrawLoadingDots(NVGcontext* vg, float cx, float cy);
+    void UpdateGameVisibility(const AVFrame* frame);
     void Exit();
 
     std::unique_ptr<LunaStreamSession> session_;
     std::string title_;
     std::string controller_layout_;
     bool exiting_ = false;
+    // Le jeu est « visible » dès qu'une image n'est plus noire (les jeux démarrent sur du noir).
+    bool game_visible_ = false;
+    std::chrono::steady_clock::time_point first_frame_at_ {};
+    std::chrono::steady_clock::time_point ended_at_ {};
     bool show_debug_ = false;
     bool debug_combo_was_down_ = false;
     bool plus_was_down_ = false;

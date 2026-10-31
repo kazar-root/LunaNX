@@ -6,7 +6,9 @@
 #include "luna_models.hpp"
 
 #include <functional>
+#include <mutex>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -38,7 +40,8 @@ class LunaClient
 
     // 1. /token (cookies → jeton d'accès)  2. getAppConfig  3. choix du profil + playerLogin.
     void SignIn(const Status& status = {});
-    // Langue du catalogue : "en", "fr", ou vide pour la langue de la boutique. Renvoie true si
+    // Langue du catalogue et des sessions (en-tête x-amz-locale) : code de langue de
+    // l'interface, ou vide pour la langue de la boutique. Renvoie true si
     // elle diffère de la langue de la boutique (pour pouvoir revenir à celle-ci en cas d'échec).
     bool SetContentLanguage(const std::string& language);
     bool SignedIn() const { return !account_.access_token.empty(); }
@@ -46,6 +49,13 @@ class LunaClient
 
     // Rayons de la page d'accueil et des onglets de navigation.
     std::vector<Shelf> FetchShelves() const;
+    // Parcourt en direct les pages liées au catalogue (« Tout voir », genres, collections,
+    // chaînes…) repérées par FetchShelves, pour trouver les jeux absents des rangées de
+    // l'accueil. Les nouveaux jeux (absents de `known`, clés de InsertGameKeys) sont transmis
+    // par lots à `on_games` ; l'exploration s'arrête dès que `keep_going` renvoie false.
+    void ExploreCatalog(std::set<std::string> known,
+                        const std::function<void(std::vector<Game>)>& on_games,
+                        const std::function<bool()>& keep_going) const;
     // Complète un jeu avec sa fiche (description, playToken).
     Game FetchGameDetail(const Game& game) const;
 
@@ -73,6 +83,9 @@ class LunaClient
     json_t* GetPage(json_t* page_context, const std::string& service_token = {}) const;
     void ApplyMarketDefaults();
     std::string market_locale_;
+    // Liens de navigation repérés par FetchShelves, point de départ de ExploreCatalog.
+    mutable std::mutex catalog_links_mutex_;
+    mutable std::vector<std::string> catalog_links_;
     json_t* ClientContext() const;
     std::vector<std::string> ProxyHeaders() const;
     std::string HostOf(const std::string& url) const;

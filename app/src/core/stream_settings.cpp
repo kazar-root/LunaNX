@@ -59,6 +59,10 @@ StreamSettings Normalize(StreamSettings settings)
         settings.controller_layout = "Switch";
     if (!OneOf(settings.library_layout, {"Covers", "List"}))
         settings.library_layout = "Covers";
+    if (!OneOf(settings.language, {"de", "en", "es", "fr", "it", "pt", "ru", "zh"}))
+        settings.language = "en";
+    if (!OneOf(settings.amazon_market, {"fr", "de", "co.uk", "es", "it", "com", "ca"}))
+        settings.amazon_market.clear();
     if (settings.region.empty())
         settings.region = "Auto";
     return settings;
@@ -119,6 +123,7 @@ StreamSettings LoadStreamSettings()
     settings.image_quality_mode = JsonField(r, "image_quality_mode", settings.image_quality_mode);
     settings.library_layout = JsonField(r, "library_layout", settings.library_layout);
     settings.amazon_market = JsonField(r, "amazon_market", settings.amazon_market);
+    settings.language = JsonField(r, "language", settings.language);
     return Normalize(settings);
 }
 
@@ -138,6 +143,7 @@ bool SaveStreamSettings(const StreamSettings& settings)
     json_object_set_new(r, "controller_layout", json_string(clean.controller_layout.c_str()));
     json_object_set_new(r, "image_quality_mode", json_string(clean.image_quality_mode.c_str()));
     json_object_set_new(r, "library_layout", json_string(clean.library_layout.c_str()));
+    json_object_set_new(r, "language", json_string(clean.language.c_str()));
     json_object_set_new(r, "amazon_market", json_string(clean.amazon_market.c_str()));
 
     char* text = json_dumps(r, JSON_INDENT(2));

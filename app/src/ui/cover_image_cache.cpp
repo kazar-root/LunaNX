@@ -2,6 +2,8 @@
 
 #include "core/http_client.hpp"
 
+#include <nanovg/stb_image.h>
+
 
 #ifdef __SWITCH__
 #include <sys/stat.h>
@@ -104,9 +106,83 @@ bool HasImageSignature(const std::string& data)
         return true;
     }
 
+    // BMP : jaquettes réduites par ShrinkImage.
+    if (data.size() >= 54 && data.compare(0, 2, "BM") == 0)
+        return true;
+
     return data.size() >= 12 &&
            data.compare(0, 4, "RIFF") == 0 &&
            data.compare(8, 4, "WEBP") == 0;
+}
+
+// Image beaucoup plus grande que son affichage (adresse qu'Amazon ne redimensionne pas) :
+// réduite ici à `max_width` pixels de large, en BMP 24 bits. Sans cela une seule jaquette 4K
+// occuperait ~33 Mo de texture, et quelques-unes suffisent à épuiser la mémoire de la Switch.
+std::string ShrinkImage(const std::string& bytes, int max_width)
+{
+    const auto* data = reinterpret_cast<const unsigned char*>(bytes.data());
+    const int size = static_cast<int>(bytes.size());
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    if (max_width <= 0 || !stbi_info_from_memory(data, size, &width, &height, &channels) ||
+        (width <= max_width * 2 && height <= max_width * 3))
+        return bytes;
+
+    // Une seule réduction à la fois : l'image décodée peut peser des dizaines de Mo.
+    static std::mutex shrink_mutex;
+    std::lock_guard<std::mutex> lock(shrink_mutex);
+    unsigned char* pixels = stbi_load_from_memory(data, size, &width, &height, &channels, 3);
+    if (!pixels)
+        return {};
+    const int target_width = std::min(max_width, width);
+    const int target_height = std::max(1, static_cast<int>(static_cast<std::int64_t>(height) * target_width / width));
+    const int row_bytes = (target_width * 3 + 3) & ~3;
+    const std::uint32_t pixel_bytes = static_cast<std::uint32_t>(row_bytes) * target_height;
+
+    std::string bmp(54 + pixel_bytes, '\0');
+    auto put32 = [&bmp](size_t offset, std::uint32_t value) {
+        for (int i = 0; i < 4; ++i)
+            bmp[offset + i] = static_cast<char>((value >> (8 * i)) & 0xff);
+    };
+    bmp[0] = 'B';
+    bmp[1] = 'M';
+    put32(2, static_cast<std::uint32_t>(bmp.size()));
+    put32(10, 54);
+    put32(14, 40);
+    put32(18, static_cast<std::uint32_t>(target_width));
+    put32(22, static_cast<std::uint32_t>(target_height));
+    bmp[26] = 1;
+    bmp[28] = 24;
+    put32(34, pixel_bytes);
+
+    // Moyenne de chaque bloc source ; lignes de bas en haut, pixels en BGR (format BMP).
+    for (int y = 0; y < target_height; ++y)
+    {
+        const int y0 = static_cast<int>(static_cast<std::int64_t>(y) * height / target_height);
+        const int y1 = std::max(y0 + 1, static_cast<int>(static_cast<std::int64_t>(y + 1) * height / target_height));
+        char* out = &bmp[54 + static_cast<size_t>(target_height - 1 - y) * row_bytes];
+        for (int x = 0; x < target_width; ++x)
+        {
+            const int x0 = static_cast<int>(static_cast<std::int64_t>(x) * width / target_width);
+            const int x1 = std::max(x0 + 1, static_cast<int>(static_cast<std::int64_t>(x + 1) * width / target_width));
+            std::uint32_t sum[3] = {0, 0, 0};
+            for (int sy = y0; sy < y1; ++sy)
+                for (int sx = x0; sx < x1; ++sx)
+                {
+                    const unsigned char* p = pixels + (static_cast<size_t>(sy) * width + sx) * 3;
+                    sum[0] += p[0];
+                    sum[1] += p[1];
+                    sum[2] += p[2];
+                }
+            const std::uint32_t count = static_cast<std::uint32_t>((y1 - y0) * (x1 - x0));
+            out[x * 3 + 0] = static_cast<char>(sum[2] / count);
+            out[x * 3 + 1] = static_cast<char>(sum[1] / count);
+            out[x * 3 + 2] = static_cast<char>(sum[0] / count);
+        }
+    }
+    stbi_image_free(pixels);
+    return bmp;
 }
 
 bool ReadCachedImage(const std::string& path, std::string& data)
@@ -192,11 +268,15 @@ class ImageLoader
         }
     }
 
+    // `max_width` : largeur au-delà de laquelle l'image est réduite (voir ShrinkImage).
     void Request(
-        const std::string& url,
+        const std::string& image_url,
+        int max_width,
         ImagePriority priority,
         Completion completion = {})
     {
+        // L'image réduite est mise en cache sous sa propre clé.
+        const std::string url = image_url + "#w" + std::to_string(max_width);
         ImageData memory_hit;
         {
             std::lock_guard<std::mutex> lock(mutex_);
@@ -227,6 +307,8 @@ class ImageLoader
 
                 auto state = std::make_shared<PendingRequest>();
                 state->priority = priority;
+                state->url = image_url;
+                state->max_width = max_width;
                 if (completion)
                     state->completions.push_back(std::move(completion));
                 pending_.emplace(url, std::move(state));
@@ -250,6 +332,8 @@ class ImageLoader
     struct PendingRequest
     {
         ImagePriority priority = ImagePriority::Normal;
+        std::string url;
+        int max_width = 0;
         bool started = false;
         std::vector<Completion> completions;
     };
@@ -285,11 +369,11 @@ class ImageLoader
                pop(prefetch_queue_);
     }
 
-    ImageData Load(const std::string& url)
+    ImageData Load(const std::string& key, const std::string& url, int max_width)
     {
         try
         {
-            const std::string cache_path = CachePathForUrl(url);
+            const std::string cache_path = CachePathForUrl(key);
             std::string bytes;
             if (ReadCachedImage(cache_path, bytes))
                 return std::make_shared<const std::string>(std::move(bytes));
@@ -309,8 +393,11 @@ class ImageLoader
                 return {};
             }
 
-            WriteCachedImage(cache_path, response.body);
-            return std::make_shared<const std::string>(response.body);
+            std::string image = ShrinkImage(response.body, max_width);
+            if (image.empty())
+                return {};
+            WriteCachedImage(cache_path, image);
+            return std::make_shared<const std::string>(std::move(image));
         }
         catch (...)
         {
@@ -378,7 +465,7 @@ class ImageLoader
                 state->started = true;
             }
 
-            ImageData data = Load(entry.url);
+            ImageData data = Load(entry.url, state->url, state->max_width);
             std::vector<Completion> completions;
             {
                 std::lock_guard<std::mutex> lock(mutex_);
@@ -433,6 +520,7 @@ ImageLoader& Loader()
 void SetCachedRemoteImage(
     brls::Image* image,
     const std::string& image_url,
+    int max_width,
     ImagePriority priority,
     std::function<bool()> should_apply = {})
 {
@@ -442,10 +530,11 @@ void SetCachedRemoteImage(
     // Keep freeTexture=true. Replacing a resource-backed texture with an
     // async memory texture otherwise leaks GPU textures in Borealis.
     image->setImageAsync(
-        [image_url, priority, should_apply = std::move(should_apply)](
+        [image_url, max_width, priority, should_apply = std::move(should_apply)](
             auto ready) mutable {
             Loader().Request(
                 image_url,
+                max_width,
                 priority,
                 [ready, should_apply = std::move(should_apply)](
                     ImageData data) mutable {
@@ -470,7 +559,7 @@ void SetCachedPosterImage(brls::Image* image, const std::string& image_url)
         image->setImageFromRes(kFallbackCoverRes);
         return;
     }
-    SetCachedRemoteImage(image, ResizeAmazonImageUrl(image_url, kPosterWidth), ImagePriority::Normal);
+    SetCachedRemoteImage(image, ResizeAmazonImageUrl(image_url, kPosterWidth), kPosterWidth, ImagePriority::Normal);
 }
 
 void SetCachedGalleryImage(
@@ -481,6 +570,7 @@ void SetCachedGalleryImage(
     SetCachedRemoteImage(
         image,
         ResizeAmazonImageUrl(image_url, kGalleryWidth),
+        kGalleryWidth,
         ImagePriority::Critical,
         std::move(should_apply));
 }

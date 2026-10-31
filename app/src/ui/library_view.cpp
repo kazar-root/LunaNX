@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <map>
 #include <optional>
 #include <set>
 
@@ -46,9 +47,17 @@ constexpr size_t kGridColumns = 5;
 constexpr float kGridCardWidth = 212.0f;
 constexpr float kRowCardWidth = 170.0f;
 
-std::string GameKey(const luna::Game& game)
+// Clés d'un jeu : son ASIN et son titre normalisé (deux tuiles du même jeu n'ont pas
+// toujours toutes les deux un ASIN).
+std::vector<std::string> GameKeys(const luna::Game& game)
 {
-    return !game.asin.empty() ? game.asin : game.title;
+    std::vector<std::string> keys;
+    if (!game.asin.empty())
+        keys.push_back("a:" + game.asin);
+    const std::string title = luna::NormalizedGameTitle(game.title);
+    if (!title.empty())
+        keys.push_back("t:" + title);
+    return keys;
 }
 
 std::string Lowercase(std::string text)
@@ -58,21 +67,34 @@ std::string Lowercase(std::string text)
     return text;
 }
 
-// Tous les jeux du catalogue, sans doublon, dans l'ordre des rangées Luna.
-std::vector<luna::Game> UniqueGames(const std::vector<luna::Shelf>& shelves)
+// Ajoute le jeu au catalogue s'il n'y est pas encore (même ASIN ou même titre normalisé).
+bool AddToCatalog(std::vector<luna::Game>& catalog, std::map<std::string, size_t>& index,
+                  const luna::Game& game)
 {
-    std::vector<luna::Game> games;
-    std::set<std::string> seen;
-    for (const auto& shelf : shelves)
-        for (const auto& game : shelf.games)
-            if (!game.title.empty() && seen.insert(GameKey(game)).second)
-                games.push_back(game);
-    return games;
+    const std::vector<std::string> keys = GameKeys(game);
+    if (game.title.empty() || keys.empty())
+        return false;
+    size_t slot = catalog.size();
+    for (const auto& key : keys)
+    {
+        const auto found = index.find(key);
+        if (found != index.end())
+        {
+            slot = found->second;
+            break;
+        }
+    }
+    const bool added = slot == catalog.size();
+    if (added)
+        catalog.push_back(game);
+    for (const auto& key : keys)
+        index.emplace(key, slot);
+    return added;
 }
 
 void AppendUnique(std::vector<luna::Game>& out, std::set<std::string>& seen, const luna::Game& game)
 {
-    if (out.size() < kGamesPerPage && !game.title.empty() && seen.insert(GameKey(game)).second)
+    if (out.size() < kGamesPerPage && !game.title.empty() && luna::InsertGameKeys(seen, game))
         out.push_back(game);
 }
 
@@ -147,7 +169,8 @@ std::optional<luna::Game> PickFeaturedGame(const std::vector<luna::Shelf>& shelv
     return std::nullopt;
 }
 
-brls::Box* SectionHeader(const std::string& title, const std::string& subtitle)
+brls::Box* SectionHeader(const std::string& title, const std::string& subtitle,
+                         brls::Label** subtitle_label = nullptr)
 {
     auto* header = new brls::Box(brls::Axis::ROW);
     header->setAlignItems(brls::AlignItems::FLEX_END);
@@ -156,7 +179,12 @@ brls::Box* SectionHeader(const std::string& title, const std::string& subtitle)
     label->setMarginRight(14);
     header->addView(label);
     if (!subtitle.empty())
-        header->addView(MakeLabel(subtitle, 16, nvgRGB(130, 134, 150)));
+    {
+        auto* sub = MakeLabel(subtitle, 16, nvgRGB(130, 134, 150));
+        header->addView(sub);
+        if (subtitle_label)
+            *subtitle_label = sub;
+    }
     return header;
 }
 
@@ -168,6 +196,7 @@ LibraryView::LibraryView()
     setGrow(1.0f);
     setBackgroundColor(nvgRGB(12, 11, 18));
     setPadding(26, 40, 10, 40);
+    language_ = UiLanguage();
 
     auto* header = new brls::Box(brls::Axis::ROW);
     header->setAlignItems(brls::AlignItems::CENTER);
@@ -200,8 +229,8 @@ LibraryView::LibraryView()
         header->addView(button);
         return button;
     };
-    make_button(Tr("Actualiser"), [this] { Reload(); });
-    make_button(Tr("Réglages"), [] {
+    refresh_button_ = make_button(Tr("Actualiser"), [this] { Reload(); });
+    settings_button_ = make_button(Tr("Réglages"), [] {
         brls::Application::pushActivity(new brls::Activity(new SettingsView()));
     });
     addView(header);
@@ -223,6 +252,16 @@ LibraryView::LibraryView()
     });
     registerAction(Tr("Quitter"), brls::BUTTON_START, [](brls::View*) {
         brls::Application::quit();
+        return true;
+    });
+    registerAction(Tr("Page précédente"), brls::BUTTON_LB, [this](brls::View*) {
+        if (grid_ && grid_page_ > 0)
+            ShowGridPage(grid_page_ - 1, true);
+        return true;
+    });
+    registerAction(Tr("Page suivante"), brls::BUTTON_RB, [this](brls::View*) {
+        if (grid_ && (grid_page_ + 1) * kGamesPerPage < grid_games_.size())
+            ShowGridPage(grid_page_ + 1, true);
         return true;
     });
 
@@ -262,6 +301,7 @@ void LibraryView::Reload()
     if (loading_)
         return;
     loading_ = true;
+    ++explore_generation_;
     status_label_->setText(Tr("Connexion…"));
 
     auto alive = alive_;
@@ -364,15 +404,96 @@ void LibraryView::Reload()
                                        ? Tr("Connecté")
                                        : Tr("Connecté · profil Luna actif"));
             ShowShelves(shelves);
+            StartCatalogExploration();
         });
     });
 }
 
-void LibraryView::ShowSignIn(const std::string& reason)
+void LibraryView::ShowStorePicker()
 {
     content_->clearViews();
     first_card_ = nullptr;
-    const auto& market = luna::FindAmazonMarket(LoadStreamSettings().amazon_market);
+
+    auto* card = new brls::Box(brls::Axis::COLUMN);
+    card->setPadding(28, 32, 28, 32);
+    card->setCornerRadius(14);
+    card->setBackgroundColor(nvgRGB(24, 22, 34));
+    auto* heading = MakeLabel(Tr("Choisis ta boutique Amazon"), 24, nvgRGB(245, 246, 248));
+    heading->setMarginBottom(10);
+    card->addView(heading);
+    auto* explanation = MakeLabel(Tr("Luna n'est disponible que dans ces pays. LunaNX se connectera à la "
+                                     "boutique choisie et utilisera sa langue (modifiable ensuite dans les "
+                                     "Réglages)."),
+                                  17, nvgRGB(200, 204, 212));
+    explanation->setMarginBottom(18);
+    card->addView(explanation);
+
+    // Boutiques Luna, par ordre alphabétique de leur nom dans leur propre langue.
+    std::vector<luna::AmazonMarket> markets = luna::AmazonMarkets();
+    std::sort(markets.begin(), markets.end(), [](const luna::AmazonMarket& a, const luna::AmazonMarket& b) {
+        return a.native_name < b.native_name;
+    });
+    const std::string current = LoadStreamSettings().amazon_market;
+    for (const auto& market : markets)
+    {
+        auto* button = new brls::Button();
+        button->setText(market.native_name + "  ·  amazon." + market.code);
+        button->setStyle(market.code == current ? &brls::BUTTONSTYLE_PRIMARY : &brls::BUTTONSTYLE_BORDERED);
+        button->setMarginBottom(10);
+        const std::string code = market.code;
+        button->registerClickAction([this, code](brls::View*) {
+            ChooseStore(code);
+            return true;
+        });
+        card->addView(button);
+        if (!first_card_ || market.code == current)
+            first_card_ = button;
+    }
+    content_->addView(card);
+    brls::Application::giveFocus(first_card_);
+}
+
+void LibraryView::ChooseStore(const std::string& market_code)
+{
+    // La boutique fixe le point d'accès Luna ; sa langue devient celle de LunaNX, du catalogue
+    // et des jeux (x-amz-locale). La langue reste modifiable ensuite dans les réglages.
+    StreamSettings settings = LoadStreamSettings();
+    settings.amazon_market = market_code;
+    settings.language = luna::FindAmazonMarket(market_code).language;
+    SaveStreamSettings(settings);
+    SetUiLanguage(settings.language);
+    RefreshHeaderLanguage();
+    // Différé : le bouton qui a déclenché le choix ne doit pas être détruit pendant son clic.
+    auto alive = alive_;
+    brls::sync([this, alive]() {
+        if (*alive)
+            ShowSignIn({});
+    });
+}
+
+void LibraryView::RefreshHeaderLanguage()
+{
+    language_ = UiLanguage();
+    refresh_button_->setText(Tr("Actualiser"));
+    settings_button_->setText(Tr("Réglages"));
+    updateActionHint(brls::BUTTON_Y, Tr("Actualiser"));
+    updateActionHint(brls::BUTTON_X, Tr("Réglages"));
+    updateActionHint(brls::BUTTON_START, Tr("Quitter"));
+    updateActionHint(brls::BUTTON_LB, Tr("Page précédente"));
+    updateActionHint(brls::BUTTON_RB, Tr("Page suivante"));
+}
+
+void LibraryView::ShowSignIn(const std::string& reason)
+{
+    // Premier lancement : la boutique Amazon doit être choisie avant la connexion.
+    if (LoadStreamSettings().amazon_market.empty())
+    {
+        ShowStorePicker();
+        return;
+    }
+    content_->clearViews();
+    first_card_ = nullptr;
+    const luna::AmazonMarket market = luna::FindAmazonMarket(LoadStreamSettings().amazon_market);
 
     auto* card = new brls::Box(brls::Axis::COLUMN);
     card->setPadding(28, 32, 28, 32);
@@ -407,6 +528,20 @@ void LibraryView::ShowSignIn(const std::string& reason)
         return true;
     });
     card->addView(button);
+
+    auto* store_button = new brls::Button();
+    store_button->setText(Tr("Changer de boutique") + "  ·  amazon." + market.code);
+    store_button->setStyle(&brls::BUTTONSTYLE_BORDERED);
+    store_button->setMarginBottom(20);
+    store_button->registerClickAction([this](brls::View*) {
+        auto alive = alive_;
+        brls::sync([this, alive]() {
+            if (*alive)
+                ShowStorePicker();
+        });
+        return true;
+    });
+    card->addView(store_button);
 
     card->addView(MakeLabel(CookieHelpText(), 14, nvgRGB(130, 134, 145)));
     content_->addView(card);
@@ -474,11 +609,21 @@ void LibraryView::ShowShelves(const std::vector<luna::Shelf>& shelves)
     content_->clearViews();
     first_card_ = nullptr;
     grid_ = nullptr;
-    more_button_ = nullptr;
+    grid_page_box_ = nullptr;
+    grid_row_ = nullptr;
+    pager_ = nullptr;
+    prev_button_ = nullptr;
+    next_button_ = nullptr;
+    page_label_ = nullptr;
+    all_games_count_ = nullptr;
     recent_changed_ = false;
 
-    const std::vector<luna::Game> games = UniqueGames(shelves_);
-    if (games.empty())
+    catalog_.clear();
+    catalog_index_.clear();
+    for (const auto& shelf : shelves_)
+        for (const auto& game : shelf.games)
+            AddToCatalog(catalog_, catalog_index_, game);
+    if (catalog_.empty())
     {
         rendered_layout_.clear();
         ShowMessage(Tr("Aucun jeu trouvé"),
@@ -487,11 +632,13 @@ void LibraryView::ShowShelves(const std::vector<luna::Shelf>& shelves)
         return;
     }
 
+    grid_games_ = catalog_;
+
     rendered_layout_ = LoadStreamSettings().library_layout;
     if (rendered_layout_ == "List")
-        ShowGameList(games);
+        ShowGameList(grid_games_);
     else
-        ShowCovers(shelves_, games);
+        ShowCovers(shelves_, grid_games_);
     if (first_card_)
         brls::Application::giveFocus(first_card_);
 }
@@ -507,21 +654,25 @@ void LibraryView::ShowGameList(const std::vector<luna::Game>& catalog)
     auto* heading = MakeLabel(TrFormat("{} jeux disponibles", {std::to_string(games.size())}), 21, nvgRGB(235, 236, 240));
     heading->setMarginBottom(8);
     content_->addView(heading);
+    all_games_count_ = heading;
 
     for (const auto& game : games)
-    {
-        auto* cell = new brls::DetailCell();
-        cell->setText(game.title);
-        cell->setDetailText(Tr("Jouer"));
-        cell->setDetailTextColor(nvgRGB(176, 150, 255));
-        cell->registerClickAction([this, game](brls::View*) {
-            Launch(game);
-            return true;
-        });
-        if (!first_card_)
-            first_card_ = cell;
-        content_->addView(cell);
-    }
+        AddListCell(game);
+}
+
+void LibraryView::AddListCell(const luna::Game& game)
+{
+    auto* cell = new brls::DetailCell();
+    cell->setText(game.title);
+    cell->setDetailText(Tr("Jouer"));
+    cell->setDetailTextColor(nvgRGB(176, 150, 255));
+    cell->registerClickAction([this, game](brls::View*) {
+        Launch(game);
+        return true;
+    });
+    if (!first_card_)
+        first_card_ = cell;
+    content_->addView(cell);
 }
 
 void LibraryView::ShowCovers(const std::vector<luna::Shelf>& shelves, const std::vector<luna::Game>& games)
@@ -541,22 +692,37 @@ void LibraryView::ShowCovers(const std::vector<luna::Shelf>& shelves, const std:
         AddRow("Top 10", Tr("Les jeux du moment sur Luna"), top, true);
 
     content_->addView(SectionHeader(Tr("Tous les jeux"),
-                                    TrFormat("{} jeux disponibles", {std::to_string(games.size())})));
-    grid_games_ = games;
-    grid_shown_ = 0;
+                                    TrFormat("{} jeux disponibles", {std::to_string(games.size())}),
+                                    &all_games_count_));
     grid_ = new brls::Box(brls::Axis::COLUMN);
     content_->addView(grid_);
 
-    more_button_ = new brls::Button();
-    more_button_->setStyle(&brls::BUTTONSTYLE_BORDERED);
-    more_button_->setMarginTop(6);
-    more_button_->setMarginBottom(30);
-    more_button_->registerClickAction([this](brls::View*) {
-        ShowMoreGames(true);
-        return true;
-    });
-    content_->addView(more_button_);
-    ShowMoreGames(false);
+    // Navigation entre les pages de 10 jaquettes (boutons, ou L / R).
+    pager_ = new brls::Box(brls::Axis::ROW);
+    pager_->setAlignItems(brls::AlignItems::CENTER);
+    pager_->setMarginTop(6);
+    pager_->setMarginBottom(30);
+    auto make_pager_button = [this](const std::string& text, bool forward) {
+        auto* button = new brls::Button();
+        button->setText(text);
+        button->setStyle(&brls::BUTTONSTYLE_BORDERED);
+        button->setMarginRight(16);
+        button->registerClickAction([this, forward](brls::View*) {
+            if (forward)
+                ShowGridPage(grid_page_ + 1, true);
+            else if (grid_page_ > 0)
+                ShowGridPage(grid_page_ - 1, true);
+            return true;
+        });
+        pager_->addView(button);
+        return button;
+    };
+    prev_button_ = make_pager_button(Tr("Page précédente"), false);
+    next_button_ = make_pager_button(Tr("Page suivante"), true);
+    page_label_ = MakeLabel("", 17, nvgRGB(150, 154, 166));
+    pager_->addView(page_label_);
+    content_->addView(pager_);
+    ShowGridPage(0, false);
 }
 
 void LibraryView::AddRow(const std::string& title, const std::string& subtitle,
@@ -585,45 +751,145 @@ void LibraryView::AddRow(const std::string& title, const std::string& subtitle,
     content_->addView(frame);
 }
 
-void LibraryView::ShowMoreGames(bool focus_new_cards)
+void LibraryView::ShowGridPage(size_t page, bool focus_first_card)
 {
-    if (!grid_ || !more_button_)
+    if (!grid_)
         return;
-    // Les jaquettes ne sont créées (et téléchargées) que par paquets de 10.
-    const size_t end = std::min(grid_shown_ + kGamesPerPage, grid_games_.size());
-    brls::Box* row = nullptr;
-    brls::View* first_new = nullptr;
-    for (size_t i = grid_shown_; i < end; ++i)
+    const size_t pages = std::max<size_t>(1, (grid_games_.size() + kGamesPerPage - 1) / kGamesPerPage);
+    grid_page_ = std::min(page, pages - 1);
+
+    // Nouvelle page construite et focalisée avant la suppression de l'ancienne : ses
+    // jaquettes (et leurs textures) sont libérées, la mémoire reste celle de 10 jaquettes.
+    brls::Box* old_page = grid_page_box_;
+    grid_page_box_ = new brls::Box(brls::Axis::COLUMN);
+    grid_row_ = nullptr;
+    grid_shown_end_ = grid_page_ * kGamesPerPage;
+    grid_->addView(grid_page_box_);
+    AppendToGridPage();
+    brls::View* first_new = grid_page_box_->getChildren().empty() ? nullptr : grid_page_box_->getChildren().front();
+    if (auto* row = dynamic_cast<brls::Box*>(first_new))
+        first_new = row->getChildren().empty() ? nullptr : row->getChildren().front();
+    // Sans bannière ni rangée, la première jaquette sert de focus par défaut : elle suit la page.
+    bool first_card_in_old_page = false;
+    for (brls::View* view = first_card_; view && old_page; view = view->getParent())
+        if (view == old_page)
+            first_card_in_old_page = true;
+    if (!first_card_ || first_card_in_old_page)
+        first_card_ = first_new;
+    if (focus_first_card && first_new)
+        brls::Application::giveFocus(first_new);
+    if (old_page)
+        grid_->removeView(old_page, true);
+    UpdatePager();
+}
+
+void LibraryView::AppendToGridPage()
+{
+    // Complète la page affichée (jeux découverts pendant que la page n'est pas pleine).
+    const size_t end = std::min((grid_page_ + 1) * kGamesPerPage, grid_games_.size());
+    for (size_t i = grid_shown_end_; i < end; ++i)
     {
-        if (!row || i % kGridColumns == 0)
+        if (!grid_row_ || i % kGridColumns == 0)
         {
-            row = new brls::Box(brls::Axis::ROW);
-            grid_->addView(row);
+            grid_row_ = new brls::Box(brls::Axis::ROW);
+            grid_page_box_->addView(grid_row_);
         }
         const luna::Game game = grid_games_[i];
-        auto* card = new PosterCard(game, kGridCardWidth, 0, [this, game]() { Launch(game); });
-        row->addView(card);
-        if (!first_new)
-            first_new = card;
+        grid_row_->addView(new PosterCard(game, kGridCardWidth, 0, [this, game]() { Launch(game); }));
     }
-    grid_shown_ = end;
+    grid_shown_end_ = std::max(grid_shown_end_, end);
+}
 
-    const size_t remaining = grid_games_.size() - grid_shown_;
-    if (remaining == 0)
-        more_button_->setVisibility(brls::Visibility::GONE);
-    else
-        more_button_->setText(TrFormat("Afficher {} jeux de plus  ({} restants)",
-                                       {std::to_string(std::min(remaining, kGamesPerPage)),
-                                        std::to_string(remaining)}));
+void LibraryView::UpdatePager()
+{
+    if (!pager_)
+        return;
+    const size_t pages = (grid_games_.size() + kGamesPerPage - 1) / kGamesPerPage;
+    pager_->setVisibility(pages > 1 ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
+    prev_button_->setVisibility(grid_page_ > 0 ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
+    next_button_->setVisibility(grid_page_ + 1 < pages ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
+    page_label_->setText(TrFormat("Page {} / {}", {std::to_string(grid_page_ + 1), std::to_string(std::max<size_t>(pages, 1))}));
+}
 
-    if (!first_card_)
-        first_card_ = first_new;
-    if (focus_new_cards && first_new)
-        brls::Application::giveFocus(first_new);
+void LibraryView::UpdateGameCount()
+{
+    if (all_games_count_)
+        all_games_count_->setText(TrFormat("{} jeux disponibles", {std::to_string(grid_games_.size())}));
+}
+
+void LibraryView::StartCatalogExploration()
+{
+    if (!client_ || shelves_.empty())
+        return;
+    std::set<std::string> known;
+    for (const auto& game : catalog_)
+        luna::InsertGameKeys(known, game);
+
+    exploration_done_ = false;
+    const uint64_t generation = explore_generation_.load();
+    const std::string connected_text = status_label_->getFullText();
+    status_label_->setText(Tr("Recherche d'autres jeux…"));
+    auto alive = alive_;
+    auto client = client_;
+    brls::async([this, alive, client, known, generation, connected_text]() {
+        client->ExploreCatalog(
+            known,
+            [this, alive, generation](std::vector<luna::Game> games) {
+                brls::sync([this, alive, generation, games = std::move(games)]() mutable {
+                    if (*alive && generation == explore_generation_.load())
+                        AddDiscoveredGames(std::move(games));
+                });
+            },
+            [this, alive, generation]() { return *alive && generation == explore_generation_.load(); });
+        brls::sync([this, alive, generation, connected_text]() {
+            if (*alive && generation == explore_generation_.load())
+            {
+                exploration_done_ = true;
+                status_label_->setText(connected_text);
+            }
+        });
+    });
+}
+
+void LibraryView::AddDiscoveredGames(std::vector<luna::Game> games)
+{
+    // Gardés avec le catalogue : ils réapparaissent si l'écran est redessiné.
+    shelves_.push_back(luna::Shelf {"", "EXPLORED", games});
+    // Dernier filtre anti-doublon : seuls les jeux absents du catalogue sont ajoutés.
+    std::vector<luna::Game> shown;
+    for (const auto& game : games)
+        if (AddToCatalog(catalog_, catalog_index_, game))
+            shown.push_back(game);
+    if (shown.empty())
+        return;
+    grid_games_.insert(grid_games_.end(), shown.begin(), shown.end());
+    UpdateGameCount();
+    if (rendered_layout_ == "List")
+    {
+        for (const auto& game : shown)
+            AddListCell(game);
+        return;
+    }
+    if (!grid_)
+        return;
+    // Ajoutés à la fin de « Tous les jeux » sans redessiner l'écran ni déplacer le focus.
+    AppendToGridPage();
+    UpdatePager();
 }
 
 void LibraryView::OnResume()
 {
+    // Langue changée dans les réglages : textes de l'écran, puis catalogue dans cette langue.
+    if (UiLanguage() != language_)
+    {
+        RefreshHeaderLanguage();
+        auto alive = alive_;
+        brls::sync([this, alive]() {
+            if (*alive)
+                Reload();
+        });
+        return;
+    }
     // Redessine après le retour du focus par Borealis, jamais pendant.
     const bool layout_changed = !rendered_layout_.empty() &&
                                 LoadStreamSettings().library_layout != rendered_layout_;
@@ -631,8 +897,12 @@ void LibraryView::OnResume()
         return;
     auto alive = alive_;
     brls::sync([this, alive]() {
-        if (*alive && !loading_)
-            ShowShelves(shelves_);
+        if (!*alive || loading_)
+            return;
+        ShowShelves(shelves_);
+        // Exploration interrompue par une partie : elle reprend (les jeux déjà trouvés restent).
+        if (!exploration_done_)
+            StartCatalogExploration();
     });
 }
 
@@ -641,6 +911,8 @@ void LibraryView::Launch(const luna::Game& game)
     if (!client_)
         return;
     LogRuntimeEvent("library", "launch", game.title);
+    // Pas d'exploration du catalogue pendant une partie : elle reprendra au retour.
+    ++explore_generation_;
     luna::RecordRecentGame(game);
     recent_changed_ = true;
     brls::Application::pushActivity(new brls::Activity(new StreamView(client_, game)),

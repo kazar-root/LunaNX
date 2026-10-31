@@ -15,6 +15,8 @@ struct AmazonMarket
     std::string label;       // affiché dans les réglages
     std::string audible_suffix;
     std::string marketplace_id;
+    std::string language;    // langue de la boutique, appliquée à LunaNX quand on la choisit
+    std::string native_name; // nom du pays dans sa langue, pour le choix au premier lancement
 };
 
 const std::vector<AmazonMarket>& AmazonMarkets();

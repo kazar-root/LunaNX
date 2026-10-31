@@ -25,10 +25,13 @@ struct StreamSettings
     // "Switch" : A Switch = A Xbox (étiquette, par défaut) ; "Xbox" : A Switch = B Xbox (position).
     std::string controller_layout = "Switch";
     std::string image_quality_mode = "Adaptive";
-    // Boutique Amazon utilisée pour la connexion directe (« fr », « de », « com »...).
-    std::string amazon_market = "fr";
-    // Bibliothèque : "Covers" (jaquettes, Top 10, Reprendre) ou "List" (liste simple de la 1.0).
+    // Boutique Amazon utilisée pour la connexion directe (« fr », « de », « com »...) ; vide
+    // tant qu'elle n'a pas été choisie au premier lancement.
+    std::string amazon_market;
+    // Bibliothèque : "Covers" (jaquettes, Top 10, Reprendre) ou "List" (liste simple).
     std::string library_layout = "Covers";
+    // Langue de l'interface (code de UiLanguageOptions), anglais au premier lancement.
+    std::string language = "en";
 };
 
 const std::vector<StreamSettings>& StreamPresets();

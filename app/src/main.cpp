@@ -16,6 +16,7 @@
 #include "core/app_paths.hpp"
 #include "core/app_version.hpp"
 #include "core/i18n.hpp"
+#include "core/stream_settings.hpp"
 #include "core/runtime_journal.hpp"
 #include "ui/cover_image_cache.hpp"
 #include "ui/library_view.hpp"
@@ -35,9 +36,10 @@ int main(int argc, char* argv[])
     {
         if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK)
             throw std::runtime_error("curl_global_init");
-        // Interface en anglais pour l'instant (le français reviendra avec un sélecteur fiable).
-        lunanx::SetUiLanguage("en");
-        brls::Platform::APP_LOCALE_DEFAULT = "en-US";
+        // Langue choisie dans les réglages (anglais au premier lancement). Borealis n'a ses
+        // propres textes (indications des boutons) qu'en anglais et en français.
+        lunanx::SetUiLanguage(lunanx::LoadStreamSettings().language);
+        brls::Platform::APP_LOCALE_DEFAULT = lunanx::UiLanguage() == "fr" ? "fr" : "en-US";
         if (!brls::Application::init())
             throw std::runtime_error("brls::Application::init");
 

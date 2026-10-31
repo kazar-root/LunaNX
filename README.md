@@ -2,10 +2,10 @@
   <img src="resources/img/lunanx_logo.png" width="220" alt="LunaNX logo">
 </p>
 
-<h1 align="center">LunaNX v1.0 — Amazon Luna on Nintendo Switch</h1>
+<h1 align="center">LunaNX v1.1 — Amazon Luna on Nintendo Switch</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0-7c5cff" alt="Version 1.0">
+  <img src="https://img.shields.io/badge/version-1.1-7c5cff" alt="Version 1.1">
   <img src="https://img.shields.io/badge/platform-Nintendo%20Switch%20(homebrew)-e60012" alt="Nintendo Switch homebrew">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License GPL-3.0">
 </p>
@@ -20,17 +20,52 @@ library, and streams the game to the console with your controller as the input d
 > respective owners. You need your own Amazon account with access to Luna; the games available
 > depend on your subscription and your country.
 
+## What's new in v1.1
+
+**New features**
+
+- **8 interface languages**: Deutsch, English, Español, Français, Italiano, Português, Русский
+  and 简体中文. English by default, changeable at any time in **Settings → Language**. The Luna
+  catalog and game texts follow the chosen language when your store offers it.
+- **Store choice at first launch**: pick your Amazon store (France, Germany, United Kingdom,
+  Spain, Italy, United States or Canada) before signing in. LunaNX then connects to the right
+  Luna service and switches to the store's language.
+- **Complete Luna catalog**: LunaNX now browses the Luna catalog live in the background ("All
+  games", genres, collections), so games that are not on the home page (for example Sonic 4)
+  appear too, instead of only the games of the home rows.
+- **Paged "All games" grid**: 10 covers per page, with **Previous page / Next page** buttons or
+  the **L / R** buttons.
+- **Automatic return to the library** when a game session ends.
+- **Loading animation** (three purple dots) until the game picture appears.
+
+**Fixes and optimizations**
+
+- Fixed a crash when browsing to the last games of the library: only the covers of the current
+  page are kept in memory, and oversized artwork is downscaled before display.
+- Fixed games shown two or three times in the library: duplicates are now detected by Amazon
+  ID or by title.
+- Fixed a crash when changing the language in Settings.
+
+## What's next: v1.2
+
+A **v1.2** is already in preparation. It will take **community feedback** into account and add
+support for more features (details to come). Suggestions and bug reports are welcome in the
+[Issues](../../issues) page.
+
 ## Features
 
 - **Amazon sign-in on the console**: the official Amazon sign-in page opens in the Switch
   browser; the session then renews automatically. Your password is never seen or stored by
   LunaNX.
-- **Amazon stores**: France, Germany, United Kingdom, Spain, Italy, United States and Canada.
+- **Amazon stores**: France, Germany, United Kingdom, Spain, Italy, United States and Canada,
+  chosen at first launch.
+- **Interface in 8 languages**: Deutsch, English, Español, Français, Italiano, Português,
+  Русский, 简体中文.
 - **Luna library**, loaded automatically:
   - **Featured** banner,
   - **Continue playing** (your last 10 games launched from LunaNX),
   - **Top 10** (current Luna ranking, when Luna provides it for your account),
-  - **All games**, shown as covers 10 at a time,
+  - **All games**: the complete catalog, explored live, shown as pages of 10 covers,
   - optional **simple list** view.
 - **Game streaming**: 720p at 60 fps, H.264 video, stereo audio, with bitrate adapted to your
   network.
@@ -38,8 +73,8 @@ library, and streams the game to the console with your controller as the input d
   manually).
 - **Controllers**: Joy-Con, Pro Controller and handheld mode, with **rumble**. Switch button
   labels by default (Xbox layout available); the D-pad can also drive the left stick.
-- **Settings**: Amazon store, sign out, library view, server region, button layout, sound,
-  volume, audio buffer, optional in-game technical overlay.
+- **Settings**: language, Amazon store, sign out, library view, server region, button layout,
+  sound, volume, audio buffer, optional in-game technical overlay.
 
 ## Screenshots
 
@@ -62,7 +97,8 @@ See **[INSTALLATION.md](INSTALLATION.md)** for step-by-step instructions. In sho
 
 1. Copy `LunaNX.nro` to `sdmc:/switch/LunaNX/` on your SD card.
 2. Start LunaNX from the Homebrew Menu **in application mode** (hold R while launching a game).
-3. Choose **Sign in with Amazon** and complete the sign-in in the Switch browser.
+3. Choose your Amazon store, then **Sign in with Amazon** and complete the sign-in in the Switch
+   browser.
 
 ## Usage
 
@@ -75,6 +111,7 @@ See **[INSTALLATION.md](INSTALLATION.md)** for step-by-step instructions. In sho
 | Launch a game | A on a cover |
 | Settings | **Settings** button (top right) or X |
 | Refresh the library | **Refresh** button or Y |
+| Previous / next page of "All games" | L / R |
 | Quit LunaNX (library) | + |
 | Start / Xbox button (in game) | + short press / long press |
 | Left stick (in game) | left stick or D-pad |
@@ -83,13 +120,15 @@ See **[INSTALLATION.md](INSTALLATION.md)** for step-by-step instructions. In sho
 
 ## Known limitations
 
-- Interface in **English only** in this version.
 - Streaming quality is fixed at **720p 60 fps** with software decoding.
 - **Application mode is required**: the Switch browser used for sign-in and the memory needed
   for streaming are not available from the Album (applet mode).
 - No keyboard or mouse support: games that require them cannot be controlled.
 - Parental control PIN prompts from Luna are not supported.
-- Game availability depends on your Luna subscription and your country.
+- Game availability depends on your Luna subscription and your country. Luna does not say in
+  its catalog which subscription includes each game: a game outside your subscription shows the
+  message "This game cannot be launched with this account".
+- Arabic and Hebrew interfaces are not available (no right-to-left text support).
 
 ## Compatibility
 

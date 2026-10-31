@@ -65,6 +65,29 @@ SettingsView::SettingsView()
     scroller->setContentView(list);
     addView(scroller);
 
+    // Langue : enregistrée et appliquée aussitôt. L'écran n'est pas reconstruit pendant que la
+    // liste de choix est ouverte (cause du plantage d'une version précédente) : la
+    // bibliothèque se met à jour au retour, les réglages à leur prochaine ouverture.
+    std::vector<std::string> language_codes;
+    std::vector<std::string> language_names;
+    for (const auto& option : UiLanguageOptions())
+    {
+        language_codes.push_back(option.code);
+        language_names.push_back(option.name);
+    }
+    auto* language = new brls::SelectorCell();
+    language->init(Tr("Langue"), language_names, IndexOf(language_codes, settings_.language),
+                   [this, language_codes](int index) {
+                       if (settings_.language == language_codes[index])
+                           return;
+                       settings_.language = language_codes[index];
+                       Save();
+                       SetUiLanguage(settings_.language);
+                       brls::Application::notify(
+                           Tr("Langue modifiée. Certains textes seront mis à jour au prochain lancement de LunaNX."));
+                   });
+    list->addView(language);
+
     // Compte Amazon : pays de la boutique et déconnexion de la console.
     std::vector<std::string> market_labels;
     std::vector<std::string> market_codes;
@@ -77,6 +100,15 @@ SettingsView::SettingsView()
     market->init(Tr("Compte Amazon"), market_labels, IndexOf(market_codes, settings_.amazon_market),
                  [this, market_codes](int index) {
                      settings_.amazon_market = market_codes[index];
+                     // La langue suit la boutique choisie (modifiable juste au-dessus).
+                     const std::string language = luna::FindAmazonMarket(settings_.amazon_market).language;
+                     if (language != settings_.language)
+                     {
+                         settings_.language = language;
+                         SetUiLanguage(language);
+                         brls::Application::notify(Tr(
+                             "Langue modifiée. Certains textes seront mis à jour au prochain lancement de LunaNX."));
+                     }
                      Save();
                  });
     list->addView(market);

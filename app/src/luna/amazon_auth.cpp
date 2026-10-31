@@ -172,13 +172,13 @@ std::string ErrorFrom(const HttpResponse& response)
 const std::vector<AmazonMarket>& AmazonMarkets()
 {
     static const std::vector<AmazonMarket> markets = {
-        {"fr", "France (amazon.fr)", "fr", "A13V1IB3VIYZZH"},
-        {"de", "Allemagne (amazon.de)", "de", "A1PA6795UKMFR9"},
-        {"co.uk", "Royaume-Uni (amazon.co.uk)", "uk", "A1F83G8C2ARO7P"},
-        {"es", "Espagne (amazon.es)", "es", "A1RKKUPIHCS9HS"},
-        {"it", "Italie (amazon.it)", "it", "APJ6JRA9NG5V4"},
-        {"com", "États-Unis (amazon.com)", "us", "ATVPDKIKX0DER"},
-        {"ca", "Canada (amazon.ca)", "ca", "A2EUQ1WTGCTBG2"},
+        {"fr", "France (amazon.fr)", "fr", "A13V1IB3VIYZZH", "fr", "France"},
+        {"de", "Allemagne (amazon.de)", "de", "A1PA6795UKMFR9", "de", "Deutschland"},
+        {"co.uk", "Royaume-Uni (amazon.co.uk)", "uk", "A1F83G8C2ARO7P", "en", "United Kingdom"},
+        {"es", "Espagne (amazon.es)", "es", "A1RKKUPIHCS9HS", "es", "España"},
+        {"it", "Italie (amazon.it)", "it", "APJ6JRA9NG5V4", "it", "Italia"},
+        {"com", "États-Unis (amazon.com)", "us", "ATVPDKIKX0DER", "en", "United States"},
+        {"ca", "Canada (amazon.ca)", "ca", "A2EUQ1WTGCTBG2", "en", "Canada"},
     };
     return markets;
 }
