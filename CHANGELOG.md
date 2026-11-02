@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.1
+
+**Fixes**
+- Sign-in outside France: LunaNX always contacted the European Luna server, so United States
+  and Canada accounts could get a "service unavailable" error after signing in. Accounts from
+  amazon.com and amazon.ca now use the North American Luna server, the other stores the European
+  one, with an automatic retry on the other server if the first one refuses.
+
 ## v1.1
 
 **New features**

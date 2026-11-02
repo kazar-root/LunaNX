@@ -10,6 +10,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <deque>
+#include <exception>
 #include <chrono>
 #include <functional>
 #include <memory>
@@ -368,6 +369,16 @@ struct Marketplace
     const char* timezone;
 };
 
+// Serveurs Luna : Amérique du Nord (comptes amazon.com et amazon.ca) et Europe. Le site
+// luna.amazon.* déclare les deux ; getAppConfig précise ensuite celui du compte.
+constexpr const char* kNorthAmericaProxy = "https://proxy-prod.tempo.digital.a2z.com";
+constexpr const char* kEuropeProxy = "https://proxy-prod.eu-west-1.tempo.digital.a2z.com";
+
+const char* DefaultProxyFor(const std::string& country)
+{
+    return country == "US" || country == "CA" ? kNorthAmericaProxy : kEuropeProxy;
+}
+
 constexpr Marketplace kMarketplaces[] = {
     {"acbfr", "https://luna.amazon.fr", "A13V1IB3VIYZZH", "fr_FR", "FR", "Europe/Paris"},
     {"acbde", "https://luna.amazon.de", "A1PA6795UKMFR9", "de_DE", "DE", "Europe/Berlin"},
@@ -468,6 +479,7 @@ LunaClient::LunaClient(CookieJar cookies, std::optional<DeviceRegistration> regi
         account_.session_id = RandomAmazonId();
     account_.tdi = RandomUuid();
     ApplyMarketDefaults();
+    account_.proxy_url = DefaultProxyFor(account_.country);
 }
 
 void LunaClient::ApplyMarketDefaults()
@@ -625,7 +637,31 @@ json_t* LunaClient::ClientContext() const
 
 void LunaClient::LoadAppConfig()
 {
-    auto config = Adopt(Call("getAppConfig", json_pack("{s:s}", "stageOverride", "Prod")));
+    // Premier appel sur le serveur du pays du compte ; s'il refuse, l'autre serveur Luna est
+    // essayé avant d'abandonner (un compte américain envoyé en Europe y est refusé).
+    JsonPtr config(nullptr, &json_decref);
+    const std::string primary = account_.proxy_url;
+    try
+    {
+        config = Adopt(Call("getAppConfig", json_pack("{s:s}", "stageOverride", "Prod")));
+    }
+    catch (const LunaError&)
+    {
+        const std::exception_ptr first = std::current_exception();
+        account_.proxy_url = primary == kNorthAmericaProxy ? kEuropeProxy : kNorthAmericaProxy;
+        LogRuntimeEvent("luna", "app_config_fallback",
+                        "country=" + account_.country + " proxy=" + HostOf(account_.proxy_url));
+        try
+        {
+            config = Adopt(Call("getAppConfig", json_pack("{s:s}", "stageOverride", "Prod")));
+        }
+        catch (const LunaError&)
+        {
+            // Les deux serveurs refusent : l'erreur rapportée est celle du serveur du pays.
+            account_.proxy_url = primary;
+            std::rethrow_exception(first);
+        }
+    }
     json_t* root = config.get();
 
     json_t* endpoints = json_object_get(root, "endpoints");

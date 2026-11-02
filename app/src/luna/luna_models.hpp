@@ -55,6 +55,7 @@ struct Region
 struct Account
 {
     std::string luna_origin = "https://luna.amazon.fr";
+    // Serveur Luna du pays du compte (voir DefaultProxyFor), puis celui renvoyé par getAppConfig.
     std::string proxy_url = "https://proxy-prod.eu-west-1.tempo.digital.a2z.com";
     std::string marketplace_id = "A13V1IB3VIYZZH";
     std::string locale = "fr_FR";
