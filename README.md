@@ -39,7 +39,7 @@ library, and streams the game to the console with your controller as the input d
   Spain, Italy, United States or Canada) before signing in. LunaNX then connects to the right
   Luna service and switches to the store's language.
 - **Complete Luna catalog**: LunaNX now browses the Luna catalog live in the background ("All
-  games", genres, collections), so games that are not on the home page (for example Sonic 4)
+  games", genres, collections), so games that are not on the home page (for example Sonic Mania)
   appear too, instead of only the games of the home rows.
 - **Paged "All games" grid**: 10 covers per page, with **Previous page / Next page** buttons or
   the **L / R** buttons.
