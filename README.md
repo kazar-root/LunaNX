@@ -22,11 +22,10 @@ library, and streams the game to the console with your controller as the input d
 
 ## What's new in v1.1.1
 
-- **Sign-in fix for accounts outside France**: users of amazon.com (United States) and
-  amazon.ca (Canada) could get a "service unavailable" error after signing in. LunaNX now
-  connects to the Luna server of your country (North America or Europe) and automatically tries
-  the other one if the first refuses. Feedback from US and Canadian users is welcome in
-  [Issues](../../issues).
+US and Canadian users got a **"service unavailable"** error after signing in: LunaNX always
+contacted the European Luna server. It now uses the Luna server of your country.
+
+I hope you'll enjoy this update! — *KazaR-RooT*
 
 ## What's new in v1.1
 
@@ -54,11 +53,11 @@ library, and streams the game to the console with your controller as the input d
   ID or by title.
 - Fixed a crash when changing the language in Settings.
 
-## What's next: v1.2
+## What's next: v2
 
-A **v1.2** is already in preparation. It will take **community feedback** into account and add
-support for more features (details to come). Suggestions and bug reports are welcome in the
-[Issues](../../issues) page.
+A bigger update is planned: **LunaNX v2**, which should bring **mouse and keyboard support**.
+Until then, feel free to share your feedback, remarks and bug reports in the
+[Issues](../../issues) page: they will shape the next versions.
 
 ## Features
 
