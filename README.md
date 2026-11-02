@@ -2,10 +2,10 @@
   <img src="resources/img/lunanx_logo.png" width="220" alt="LunaNX logo">
 </p>
 
-<h1 align="center">LunaNX v1.1.1 — Amazon Luna on Nintendo Switch</h1>
+<h1 align="center">LunaNX v1.2 — Amazon Luna on Nintendo Switch</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.1.1-7c5cff" alt="Version 1.1.1">
+  <img src="https://img.shields.io/badge/version-1.2-7c5cff" alt="Version 1.2">
   <img src="https://img.shields.io/badge/platform-Nintendo%20Switch%20(homebrew)-e60012" alt="Nintendo Switch homebrew">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License GPL-3.0">
 </p>
@@ -20,7 +20,7 @@ library, and streams the game to the console with your controller as the input d
 > respective owners. You need your own Amazon account with access to Luna; the games available
 > depend on your subscription and your country.
 
-## What's new in v1.1.1
+## What's new in v1.2
 
 US and Canadian users got a **"service unavailable"** error after signing in: LunaNX always
 contacted the European Luna server. It now uses the Luna server of your country.

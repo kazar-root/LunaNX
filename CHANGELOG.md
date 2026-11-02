@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.1.1
+## v1.2
 
 **Fixes**
 - Sign-in outside France: LunaNX always contacted the European Luna server, so United States
