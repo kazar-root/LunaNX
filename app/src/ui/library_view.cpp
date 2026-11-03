@@ -32,14 +32,27 @@ brls::Label* MakeLabel(const std::string& text, float size, NVGcolor color)
     return label;
 }
 
-std::string CookieHelpText()
+std::string CookieHelpText(const std::string& market_code)
 {
-    return TrFormat("Solution de secours si la connexion directe échoue : exporte une seule fois la "
-                    "session de ton navigateur.\n1. Sur ton PC, connecte-toi sur luna.amazon.fr.\n"
-                    "2. Avec l'extension « Get cookies.txt LOCALLY », clique sur « Export » (fichier "
-                    "cookies.txt).\n3. Copie ce fichier dans {}/ puis appuie sur Y.\nATTENTION : ce "
-                    "fichier donne un accès complet à ton compte Amazon. Ne le partage jamais.",
-                    {AppHomePath()});
+    std::string text = TrFormat(
+        "Solution de secours si la connexion directe échoue : exporte une seule fois la "
+        "session de ton navigateur.\n1. Sur ton PC, connecte-toi sur luna.amazon.fr.\n"
+        "2. Avec l'extension « Get cookies.txt LOCALLY », clique sur « Export » (fichier "
+        "cookies.txt).\n3. Copie ce fichier dans {}/ puis appuie sur Y.\nATTENTION : ce "
+        "fichier donne un accès complet à ton compte Amazon. Ne le partage jamais.",
+        {AppHomePath()});
+    // Chaque traduction cite une boutique d'exemple : on l'adapte à celle du compte.
+    static const std::string kLunaHost = "luna.amazon.";
+    const size_t start = text.find(kLunaHost);
+    if (start != std::string::npos)
+    {
+        size_t end = start + kLunaHost.size();
+        while (end < text.size() &&
+               (std::isalnum(static_cast<unsigned char>(text[end])) || text[end] == '.' || text[end] == '-'))
+            ++end;
+        text.replace(start, end - start, kLunaHost + market_code);
+    }
+    return text;
 }
 
 constexpr size_t kGamesPerPage = 10;
@@ -543,7 +556,7 @@ void LibraryView::ShowSignIn(const std::string& reason)
     });
     card->addView(store_button);
 
-    card->addView(MakeLabel(CookieHelpText(), 14, nvgRGB(130, 134, 145)));
+    card->addView(MakeLabel(CookieHelpText(market.code), 14, nvgRGB(130, 134, 145)));
     content_->addView(card);
     first_card_ = button;
     brls::Application::giveFocus(button);

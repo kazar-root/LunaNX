@@ -28,17 +28,37 @@ namespace
 using JsonPtr = std::unique_ptr<json_t, decltype(&json_decref)>;
 
 // L'enregistrement d'appareil passe par le service d'identité des applications mobiles
-// Amazon (« MAP »), avec le profil de l'application Audible pour iOS : c'est le profil
-// public le plus utilisé par les clients libres et il délivre des cookies valables sur
-// tout le site Amazon, donc pour Luna.
-constexpr const char* kDeviceType = "A2CZJZGLK2JJVM";
-constexpr const char* kAppName = "Audible";
-constexpr const char* kAppVersion = "3.56.2";
-constexpr const char* kSoftwareVersion = "35602678";
-constexpr const char* kOsVersion = "15.0.0";
-constexpr const char* kMobileUserAgent =
+// Amazon (« MAP »). Le profil Audible pour iOS convient à la plupart des boutiques ; sur
+// amazon.pl il n'est pas reconnu et il faut utiliser le profil de l'application Luna TV.
+struct DeviceProfile
+{
+    const char* device_type;
+    const char* app_name;
+    const char* app_version;
+    const char* software_version;
+    const char* os_version;
+    const char* device_model;
+    const char* device_name;
+    const char* user_agent;
+};
+
+constexpr DeviceProfile kAudibleProfile = {
+    "A2CZJZGLK2JJVM", "Audible", "3.56.2", "35602678", "15.0.0", "iPhone",
+    "%FIRST_NAME%%FIRST_NAME_POSSESSIVE_STRING%%DUPE_STRATEGY_1ST%LunaNX",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 "
-    "(KHTML, like Gecko) Mobile/15E148";
+    "(KHTML, like Gecko) Mobile/15E148"};
+
+// Empreinte publique de l'application Luna TV, telle que déclarée par son SDK.
+constexpr DeviceProfile kLunaTvProfile = {
+    "A1MPSLFC7L5AFK", "Amazon Luna", "999", "999", "999", "Generic TV",
+    "%FIRST_NAME%'s%DUPE_STRATEGY_1ST% Generic TV",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"};
+
+const DeviceProfile& ProfileFor(const AmazonMarket& market)
+{
+    return market.luna_device ? kLunaTvProfile : kAudibleProfile;
+}
 
 void RandomBytes(unsigned char* out, size_t size)
 {
@@ -117,9 +137,9 @@ std::string UrlDecode(const std::string& value)
     return out;
 }
 
-std::string ClientId(const std::string& serial)
+std::string ClientId(const std::string& serial, const char* device_type)
 {
-    return Hex(serial + "#" + kDeviceType);
+    return Hex(serial + "#" + device_type);
 }
 
 std::string Str(json_t* object, const char* key)
@@ -172,13 +192,26 @@ std::string ErrorFrom(const HttpResponse& response)
 const std::vector<AmazonMarket>& AmazonMarkets()
 {
     static const std::vector<AmazonMarket> markets = {
-        {"fr", "France (amazon.fr)", "fr", "A13V1IB3VIYZZH", "fr", "France"},
-        {"de", "Allemagne (amazon.de)", "de", "A1PA6795UKMFR9", "de", "Deutschland"},
-        {"co.uk", "Royaume-Uni (amazon.co.uk)", "uk", "A1F83G8C2ARO7P", "en", "United Kingdom"},
-        {"es", "Espagne (amazon.es)", "es", "A1RKKUPIHCS9HS", "es", "España"},
-        {"it", "Italie (amazon.it)", "it", "APJ6JRA9NG5V4", "it", "Italia"},
-        {"com", "États-Unis (amazon.com)", "us", "ATVPDKIKX0DER", "en", "United States"},
-        {"ca", "Canada (amazon.ca)", "ca", "A2EUQ1WTGCTBG2", "en", "Canada"},
+        {"fr", "France (amazon.fr)", "amzn_audible_ios_fr", "amzn_audible_ios", "api.amazon.fr",
+         false, "A13V1IB3VIYZZH", "fr", "France"},
+        {"de", "Allemagne (amazon.de)", "amzn_audible_ios_de", "amzn_audible_ios", "api.amazon.de",
+         false, "A1PA6795UKMFR9", "de", "Deutschland"},
+        {"co.uk", "Royaume-Uni (amazon.co.uk)", "amzn_audible_ios_uk", "amzn_audible_ios",
+         "api.amazon.co.uk", false, "A1F83G8C2ARO7P", "en", "United Kingdom"},
+        {"es", "Espagne (amazon.es)", "amzn_audible_ios_es", "amzn_audible_ios", "api.amazon.es",
+         false, "A1RKKUPIHCS9HS", "es", "España"},
+        {"it", "Italie (amazon.it)", "amzn_audible_ios_it", "amzn_audible_ios", "api.amazon.it",
+         false, "APJ6JRA9NG5V4", "it", "Italia"},
+        {"com", "États-Unis (amazon.com)", "amzn_audible_ios_us", "amzn_audible_ios",
+         "api.amazon.com", false, "ATVPDKIKX0DER", "en", "United States"},
+        {"ca", "Canada (amazon.ca)", "amzn_audible_ios_ca", "amzn_audible_ios", "api.amazon.ca",
+         false, "A2EUQ1WTGCTBG2", "en", "Canada"},
+        // La Pologne n'a pas d'application Audible : Luna y utilise l'identifiant « tempo_pl »
+        // et son propre profil d'appareil. Le service d'identité reste api.amazon.com.
+        // L'interface reste en anglais (pas encore de traduction polonaise) ; le catalogue,
+        // lui, est chargé en pl_PL grâce à l'entrée correspondante de kMarketplaces.
+        {"pl", "Pologne (amazon.pl)", "tempo_pl", "tempo_pl", "api.amazon.com", true,
+         "A1C3SOZRARQ6R3", "en", "Polska"},
     };
     return markets;
 }
@@ -217,14 +250,15 @@ PendingSignIn AmazonAuth::BeginSignIn(const std::string& market_code)
         "&openid.oa2.code_challenge_method=S256"
         "&openid.oa2.code_challenge=" + challenge +
         "&openid.return_to=" + UrlEncode(pending.callback_url) +
-        "&openid.assoc_handle=amzn_audible_ios_" + market.audible_suffix +
+        "&openid.assoc_handle=" + market.assoc_handle +
         "&openid.identity=" + UrlEncode(identifier) +
-        "&pageId=amzn_audible_ios"
+        "&pageId=" + market.page_id +
         "&accountStatusPolicy=P1"
         "&openid.claimed_id=" + UrlEncode(identifier) +
         "&openid.mode=checkid_setup"
         "&openid.ns.oa2=" + UrlEncode("http://www.amazon.com/ap/ext/oauth/2") +
-        "&openid.oa2.client_id=device:" + ClientId(pending.device_serial) +
+        "&openid.oa2.client_id=device:" +
+        ClientId(pending.device_serial, ProfileFor(market).device_type) +
         "&openid.ns.pape=" + UrlEncode("http://specs.openid.net/extensions/pape/1.0") +
         "&marketPlaceId=" + market.marketplace_id +
         "&openid.oa2.scope=device_auth_access"
@@ -248,7 +282,9 @@ std::string AmazonAuth::ExtractAuthorizationCode(const std::string& final_url)
 DeviceRegistration AmazonAuth::Register(const PendingSignIn& pending, const std::string& authorization_code)
 {
     const AmazonMarket& market = FindAmazonMarket(pending.market_code);
+    const DeviceProfile& profile = ProfileFor(market);
     const std::string domain = "." + std::string("amazon.") + market.code;
+    const std::string client_id = ClientId(pending.device_serial, profile.device_type);
 
     JsonPtr body(json_pack(
         "{s:[s,s,s], s:{s:[], s:s}, s:{s:s, s:s, s:s, s:s, s:s, s:s, s:s, s:s, s:s}, "
@@ -257,16 +293,16 @@ DeviceRegistration AmazonAuth::Register(const PendingSignIn& pending, const std:
         "cookies", "website_cookies", "domain", domain.c_str(),
         "registration_data",
         "domain", "Device",
-        "app_version", kAppVersion,
+        "app_version", profile.app_version,
         "device_serial", pending.device_serial.c_str(),
-        "device_type", kDeviceType,
-        "device_name", "%FIRST_NAME%%FIRST_NAME_POSSESSIVE_STRING%%DUPE_STRATEGY_1ST%LunaNX",
-        "os_version", kOsVersion,
-        "software_version", kSoftwareVersion,
-        "device_model", "iPhone",
-        "app_name", kAppName,
+        "device_type", profile.device_type,
+        "device_name", profile.device_name,
+        "os_version", profile.os_version,
+        "software_version", profile.software_version,
+        "device_model", profile.device_model,
+        "app_name", profile.app_name,
         "auth_data",
-        "client_id", ClientId(pending.device_serial).c_str(),
+        "client_id", client_id.c_str(),
         "authorization_code", authorization_code.c_str(),
         "code_verifier", pending.code_verifier.c_str(),
         "code_algorithm", "SHA-256",
@@ -277,10 +313,11 @@ DeviceRegistration AmazonAuth::Register(const PendingSignIn& pending, const std:
     free(text);
 
     HttpClient http;
+    const std::string api_base = "https://" + market.api_domain;
     const HttpResponse response = http.Post(
-        "https://api.amazon." + market.code + "/auth/register", kMobileUserAgent,
+        api_base + "/auth/register", profile.user_agent,
         {"Content-Type: application/json", "Accept: application/json",
-         "x-amzn-identity-auth-domain: api.amazon." + market.code},
+         "x-amzn-identity-auth-domain: " + market.api_domain},
         payload);
     if (response.status_code != 200)
         throw LunaError(TrFormat("Enregistrement de l'appareil refusé : {}", {ErrorFrom(response)}));
@@ -312,10 +349,11 @@ DeviceRegistration AmazonAuth::Register(const PendingSignIn& pending, const std:
 std::vector<Cookie> AmazonAuth::RefreshCookies(const DeviceRegistration& registration)
 {
     const AmazonMarket& market = FindAmazonMarket(registration.market_code);
+    const DeviceProfile& profile = ProfileFor(market);
     const std::string domain = ".amazon." + market.code;
     const std::string body =
-        "app_name=" + std::string(kAppName) +
-        "&app_version=" + kAppVersion +
+        "app_name=" + std::string(profile.app_name) +
+        "&app_version=" + profile.app_version +
         "&source_token=" + UrlEncode(registration.refresh_token) +
         "&requested_token_type=auth_cookies"
         "&source_token_type=refresh_token"
@@ -323,9 +361,9 @@ std::vector<Cookie> AmazonAuth::RefreshCookies(const DeviceRegistration& registr
 
     HttpClient http;
     const HttpResponse response = http.Post(
-        "https://www.amazon." + market.code + "/ap/exchangetoken/cookies", kMobileUserAgent,
+        "https://www.amazon." + market.code + "/ap/exchangetoken/cookies", profile.user_agent,
         {"Content-Type: application/x-www-form-urlencoded",
-         "x-amzn-identity-auth-domain: api.amazon." + market.code},
+         "x-amzn-identity-auth-domain: " + market.api_domain},
         body);
     if (response.status_code == 400 || response.status_code == 401)
         throw SignInRequired(Tr("L'appareil a été déconnecté du compte Amazon"));
@@ -349,12 +387,14 @@ void AmazonAuth::Deregister(const DeviceRegistration& registration)
     if (registration.refresh_token.empty())
         return;
     const AmazonMarket& market = FindAmazonMarket(registration.market_code);
+    const DeviceProfile& profile = ProfileFor(market);
+    const std::string api_base = "https://" + market.api_domain;
     HttpClient http;
     // Un jeton d'accès frais est nécessaire : on l'obtient à partir du jeton de renouvellement.
     const HttpResponse token = http.Post(
-        "https://api.amazon." + market.code + "/auth/token", kMobileUserAgent,
+        api_base + "/auth/token", profile.user_agent,
         {"Content-Type: application/x-www-form-urlencoded"},
-        "app_name=" + std::string(kAppName) + "&app_version=" + kAppVersion +
+        "app_name=" + std::string(profile.app_name) + "&app_version=" + profile.app_version +
             "&source_token=" + UrlEncode(registration.refresh_token) +
             "&requested_token_type=access_token&source_token_type=refresh_token");
     json_error_t error {};
@@ -362,7 +402,7 @@ void AmazonAuth::Deregister(const DeviceRegistration& registration)
     const std::string access_token = Str(root.get(), "access_token");
     if (access_token.empty())
         return;
-    http.Post("https://api.amazon." + market.code + "/auth/deregister", kMobileUserAgent,
+    http.Post(api_base + "/auth/deregister", profile.user_agent,
               {"Content-Type: application/json", "Authorization: Bearer " + access_token},
               "{\"deregister_all_existing_accounts\":false}");
     LogRuntimeEvent("auth", "deregistered", "market=" + market.code);

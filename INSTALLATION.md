@@ -33,8 +33,8 @@ memory needed for streaming are not available there.
 ## 3. Sign in to Amazon
 
 1. At first launch, choose your Amazon store (France, Germany, United Kingdom, Spain, Italy,
-   United States or Canada). LunaNX switches to the store's language; you can change the
-   language later in **Settings → Language**.
+   Poland, United States or Canada). LunaNX switches to the store's language; you can change
+   the language later in **Settings → Language**.
 2. Choose **Sign in with Amazon**.
 3. The official Amazon sign-in page opens in the Switch browser. Enter your email, your password
    and, if asked, the verification code.

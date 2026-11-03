@@ -385,6 +385,7 @@ constexpr Marketplace kMarketplaces[] = {
     {"acbuk", "https://luna.amazon.co.uk", "A1F83G8C2ARO7P", "en_GB", "GB", "Europe/London"},
     {"acbes", "https://luna.amazon.es", "A1RKKUPIHCS9HS", "es_ES", "ES", "Europe/Madrid"},
     {"acbit", "https://luna.amazon.it", "APJ6JRA9NG5V4", "it_IT", "IT", "Europe/Rome"},
+    {"acbpl", "https://luna.amazon.pl", "A1C3SOZRARQ6R3", "pl_PL", "PL", "Europe/Warsaw"},
     {"acbca", "https://luna.amazon.ca", "A2EUQ1WTGCTBG2", "en_CA", "CA", "America/Toronto"},
     {"main", "https://luna.amazon.com", "ATVPDKIKX0DER", "en_US", "US", "America/New_York"},
 };
@@ -509,7 +510,13 @@ bool LunaClient::SetContentLanguage(const std::string& language)
     // chinois), le catalogue et les jeux restent dans la langue de la boutique.
     std::string locale = market_locale_;
     if (language == "en")
-        locale = country == "US" ? "en_US" : country == "CA" ? "en_CA" : "en_GB";
+        // La boutique polonaise n'a pas de catalogue anglais : elle reste en polonais.
+        locale = country == "US" ? "en_US"
+               : country == "CA" ? "en_CA"
+               : country == "PL" ? market_locale_
+                                 : "en_GB";
+    else if (language == "pl")
+        locale = "pl_PL";
     else if (language == "fr")
         locale = country == "CA" ? "fr_CA" : "fr_FR";
     else if (language == "de")

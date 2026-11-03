@@ -11,12 +11,15 @@ namespace lunanx::luna
 // Boutique Amazon du compte : détermine les domaines de connexion et de Luna.
 struct AmazonMarket
 {
-    std::string code;        // « fr », « de », « co.uk », « es », « it », « com », « ca »
-    std::string label;       // affiché dans les réglages
-    std::string audible_suffix;
+    std::string code;         // « fr », « de », « co.uk », « es », « it », « com », « ca », « pl »
+    std::string label;        // affiché dans les réglages
+    std::string assoc_handle; // identifiant OpenID de l'application utilisée pour la connexion
+    std::string page_id;      // pageId correspondant à cet identifiant
+    std::string api_domain;   // hôte du service d'identité Amazon (api.amazon.*)
+    bool luna_device;         // true = profil « Amazon Luna » (TV), false = profil Audible iOS
     std::string marketplace_id;
-    std::string language;    // langue de la boutique, appliquée à LunaNX quand on la choisit
-    std::string native_name; // nom du pays dans sa langue, pour le choix au premier lancement
+    std::string language;     // langue de l'interface appliquée quand on choisit cette boutique
+    std::string native_name;  // nom du pays dans sa langue, pour le choix au premier lancement
 };
 
 const std::vector<AmazonMarket>& AmazonMarkets();

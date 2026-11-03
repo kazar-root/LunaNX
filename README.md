@@ -35,8 +35,8 @@ I hope you'll enjoy this update! — *KazaR-RooT*
   and 简体中文. English by default, changeable at any time in **Settings → Language**. The Luna
   catalog and game texts follow the chosen language when your store offers it.
 - **Store choice at first launch**: pick your Amazon store (France, Germany, United Kingdom,
-  Spain, Italy, United States or Canada) before signing in. LunaNX then connects to the right
-  Luna service and switches to the store's language.
+  Spain, Italy, Poland, United States or Canada) before signing in. LunaNX then connects to the
+  right Luna service and switches to the store's language.
 - **Complete Luna catalog**: LunaNX now browses the Luna catalog live in the background ("All
   games", genres, collections), so games that are not on the home page (for example Sonic Mania)
   appear too, instead of only the games of the home rows.
@@ -64,8 +64,8 @@ Until then, feel free to share your feedback, remarks and bug reports in the
 - **Amazon sign-in on the console**: the official Amazon sign-in page opens in the Switch
   browser; the session then renews automatically. Your password is never seen or stored by
   LunaNX.
-- **Amazon stores**: France, Germany, United Kingdom, Spain, Italy, United States and Canada,
-  chosen at first launch.
+- **Amazon stores**: France, Germany, United Kingdom, Spain, Italy, Poland, United States and
+  Canada, chosen at first launch.
 - **Interface in 8 languages**: Deutsch, English, Español, Français, Italiano, Português,
   Русский, 简体中文.
 - **Luna library**, loaded automatically:
@@ -174,13 +174,43 @@ Third-party components and their licenses are listed in
 
 ## Building from source
 
-Requirements: [devkitPro](https://devkitpro.org/wiki/Getting_Started) with the following
-packages, plus CMake and Ninja.
+Requirements: [devkitPro](https://devkitpro.org/wiki/Getting_Started), CMake 3.18 or newer, and
+Ninja. The packages below provide the Switch toolchain, the ported libraries, `switch-cmake`
+(which pulls in the `uam` shader compiler and the `nacptool`/`elf2nro` tools), and bzip2.
+
+### Windows
+
+1. Run the [devkitPro graphical installer](https://github.com/devkitPro/installer/releases/latest)
+   and select **Switch Development**. Keep the default `C:\devkitPro` location.
+2. Open **devkitPro → MSYS** from the Start menu.
+3. Update the package databases, then install the build dependencies (there is no `sudo` in the
+   devkitPro MSYS shell):
+
+   ```bash
+   pacman -Syu --needed
+   pacman -S --needed devkitA64 switch-dev switch-cmake uam switch-pkg-config \
+     switch-curl switch-jansson switch-mbedtls switch-ffmpeg switch-dav1d switch-libopus \
+     switch-glfw switch-libdrm_nouveau switch-zlib switch-bzip2 switch-freetype switch-libpng \
+     switch-libwebp switch-sdl2 cmake ninja python
+   ```
+
+4. From the same MSYS window, build the project:
+
+   ```bash
+   cd /c/path/to/LunaNX
+   ./build.sh
+   ```
+
+If `pacman -Syu` asks you to close the window, reopen **devkitPro → MSYS** and run the second
+`pacman` command again.
+
+### Linux and macOS
 
 ```bash
-sudo dkp-pacman -S --needed devkitA64 switch-dev switch-curl switch-jansson switch-mbedtls \
-  switch-ffmpeg switch-dav1d switch-libopus switch-glfw switch-libdrm_nouveau switch-zlib \
-  switch-freetype switch-libpng switch-libwebp switch-sdl2 ninja
+sudo dkp-pacman -S --needed devkitA64 switch-dev switch-cmake uam switch-pkg-config \
+  switch-curl switch-jansson switch-mbedtls switch-ffmpeg switch-dav1d switch-libopus \
+  switch-glfw switch-libdrm_nouveau switch-zlib switch-bzip2 switch-freetype switch-libpng \
+  switch-libwebp switch-sdl2 ninja
 python3 -m pip install --user cmake
 ./build.sh
 ```

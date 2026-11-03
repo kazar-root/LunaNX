@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+**New features**
+- Amazon Poland (`amazon.pl`) support, available at first launch and in Settings. Polish
+  sign-in uses the Luna `tempo_pl` application handle and the Luna TV device profile, because
+  the Audible profile used for the other stores is not available on amazon.pl.
+
 ## v1.2
 
 **Fixes**
