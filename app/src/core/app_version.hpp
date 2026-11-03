@@ -3,6 +3,6 @@
 namespace lunanx
 {
 
-constexpr const char* kAppVersion = "1.2";
+constexpr const char* kAppVersion = "2.0";
 
 } // namespace lunanx

@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.0
+
+**New features**
+- Sign in with your phone: a QR code on the Switch opens a LunaNX page on your phone or tablet
+  (same Wi-Fi network). You sign in on the official Amazon page in the phone's browser, then
+  paste the address of the last page into the LunaNX page. This sign-in does not use the Switch
+  browser, which shows "This feature is not available" on some consoles. Your password is typed
+  only on Amazon's site.
+- Sign-in in the Switch browser is unchanged and still available.
+
 ## v1.2
 
 **Fixes**
