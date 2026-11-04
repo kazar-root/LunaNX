@@ -28,18 +28,6 @@ std::string OpenAmazonWebSignIn(const luna::PendingSignIn& pending)
     if (R_FAILED(rc))
         throw std::runtime_error(TrFormat("Impossible d'ouvrir le navigateur (code {})", {std::to_string(rc)}));
 
-    // Un NRO homebrew n'a pas le fichier /accessible-urls/accessible-urls.txt que l'applet
-    // Web lit normalement dans le contenu de l'application hôte. Sans liste explicite, toute
-    // navigation est refusée et l'applet se ferme aussitôt avec « This feature is not available ».
-    // Les domaines Amazon suffisent : la liste ne s'applique qu'à la navigation, pas aux
-    // ressources (scripts, images) chargées par la page. Une regex par ligne, sans saut de
-    // ligne final (une ligne vide rendrait la liste invalide et l'applet se fermerait).
-    const char* whitelist =
-        "^https?://([0-9A-Za-z-]+\\.)*amazon\\.(pl|com|ca|de|fr|es|it|co\\.uk)(/|$)";
-    rc = webConfigSetWhitelist(&config, whitelist);
-    if (R_FAILED(rc))
-        throw std::runtime_error(TrFormat("Impossible d'autoriser la page de connexion (code {})", {std::to_string(rc)}));
-
     // Le navigateur se ferme tout seul dès qu'Amazon redirige vers la page finale.
     webConfigSetCallbackUrl(&config, pending.callback_url.c_str());
     webConfigSetFooter(&config, true);
