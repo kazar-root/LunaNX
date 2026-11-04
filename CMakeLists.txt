@@ -45,10 +45,12 @@ file(GLOB_RECURSE APP_SOURCES CONFIGURE_DEPENDS app/src/*.cpp app/src/*.c)
 
 add_executable(${PROJECT_NAME}
     ${APP_SOURCES}
-    extern/borealis/library/lib/platforms/switch/switch_wrapper.c)
+    extern/borealis/library/lib/platforms/switch/switch_wrapper.c
+    extern/qrcodegen/qrcodegen.c)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     app/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/extern/qrcodegen
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/borealis/library/lib/extern/glfw/deps
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/ffmpeg/include
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/libpeer/src
@@ -96,7 +98,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     z bz2)
 
 set(PROJECT_AUTHOR "KazaR-RooT")
-set(PROJECT_VERSION_STRING "1.2")
+set(PROJECT_VERSION_STRING "2.0")
 set(PROJECT_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon/icon.jpg)
 set(PROJECT_ROMFS_DIR ${CMAKE_BINARY_DIR}/romfs)
 

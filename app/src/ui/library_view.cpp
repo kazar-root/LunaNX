@@ -7,7 +7,9 @@
 #include "core/runtime_journal.hpp"
 #include "hero_banner.hpp"
 #include "luna/recent_games.hpp"
+#include "phone_sign_in.hpp"
 #include "poster_card.hpp"
+#include "qr_code_view.hpp"
 #include "settings_view.hpp"
 #include "stream_view.hpp"
 
@@ -284,6 +286,7 @@ LibraryView::LibraryView()
 LibraryView::~LibraryView()
 {
     *alive_ = false;
+    StopPhoneSignIn();
 }
 
 brls::View* LibraryView::getDefaultFocus()
@@ -293,6 +296,7 @@ brls::View* LibraryView::getDefaultFocus()
 
 void LibraryView::ShowMessage(const std::string& title, const std::string& body)
 {
+    StopPhoneSignIn();
     content_->clearViews();
     first_card_ = nullptr;
     auto* card = new brls::Box(brls::Axis::COLUMN);
@@ -424,6 +428,7 @@ void LibraryView::Reload()
 
 void LibraryView::ShowStorePicker()
 {
+    StopPhoneSignIn();
     content_->clearViews();
     first_card_ = nullptr;
 
@@ -504,6 +509,7 @@ void LibraryView::ShowSignIn(const std::string& reason)
         ShowStorePicker();
         return;
     }
+    StopPhoneSignIn();
     content_->clearViews();
     first_card_ = nullptr;
     const luna::AmazonMarket market = luna::FindAmazonMarket(LoadStreamSettings().amazon_market);
@@ -541,6 +547,27 @@ void LibraryView::ShowSignIn(const std::string& reason)
         return true;
     });
     card->addView(button);
+
+    // Alternative sans le navigateur de la Switch (indisponible sur certaines consoles).
+    auto* phone_button = new brls::Button();
+    phone_button->setText(Tr("Se connecter avec mon téléphone"));
+    phone_button->setStyle(&brls::BUTTONSTYLE_PRIMARY);
+    phone_button->setMarginBottom(8);
+    phone_button->registerClickAction([this](brls::View*) {
+        auto alive = alive_;
+        brls::sync([this, alive]() {
+            if (*alive)
+                SignInWithPhone();
+        });
+        return true;
+    });
+    card->addView(phone_button);
+    auto* phone_hint = MakeLabel(Tr("Le navigateur de la Switch ne s'ouvre pas ou affiche « This feature is not "
+                                    "available » ? Connecte-toi depuis ton téléphone : scanne un QR code, puis "
+                                    "connecte-toi sur la vraie page Amazon."),
+                                 15, nvgRGB(160, 164, 176));
+    phone_hint->setMarginBottom(20);
+    card->addView(phone_hint);
 
     auto* store_button = new brls::Button();
     store_button->setText(Tr("Changer de boutique") + "  ·  amazon." + market.code);
@@ -584,7 +611,11 @@ void LibraryView::SignInWithAmazon()
         ShowSignIn(final_url.empty() ? Tr("Connexion annulée.") : Tr("Amazon n'a pas renvoyé de code de connexion."));
         return;
     }
+    CompleteSignIn(pending, code);
+}
 
+void LibraryView::CompleteSignIn(const luna::PendingSignIn& pending, const std::string& code)
+{
     loading_ = true;
     status_label_->setText(Tr("Enregistrement de la console sur ton compte…"));
     auto alive = alive_;
@@ -615,10 +646,109 @@ void LibraryView::SignInWithAmazon()
     });
 }
 
+void LibraryView::StopPhoneSignIn()
+{
+    if (!phone_server_)
+        return;
+    phone_server_->Stop();
+    phone_server_.reset();
+}
+
+void LibraryView::SignInWithPhone()
+{
+    if (loading_)
+        return;
+    StopPhoneSignIn();
+
+    luna::PendingSignIn pending;
+    try
+    {
+        pending = luna::AmazonAuth::BeginSignIn(LoadStreamSettings().amazon_market);
+    }
+    catch (const std::exception& ex)
+    {
+        ShowSignIn(ex.what());
+        return;
+    }
+
+    // Le code arrive sur le fil du serveur : la suite se fait sur le fil de l'interface.
+    auto alive = alive_;
+    auto server = std::make_unique<PhoneSignInServer>(pending, [this, alive, pending](const std::string& code) {
+        brls::sync([this, alive, pending, code]() {
+            if (!*alive)
+                return;
+            ShowMessage(Tr("Connexion à ton compte Amazon"), Tr("Enregistrement de la console sur ton compte…"));
+            CompleteSignIn(pending, code);
+        });
+    });
+    std::string error;
+    if (!server->Start(error))
+    {
+        ShowSignIn(error);
+        return;
+    }
+    const std::string address = server->Address();
+
+    content_->clearViews();
+    first_card_ = nullptr;
+    phone_server_ = std::move(server);
+
+    auto* card = new brls::Box(brls::Axis::COLUMN);
+    card->setPadding(28, 32, 28, 32);
+    card->setCornerRadius(14);
+    card->setBackgroundColor(nvgRGB(24, 22, 34));
+
+    auto* heading = MakeLabel(Tr("Connexion avec ton téléphone"), 24, nvgRGB(245, 246, 248));
+    heading->setMarginBottom(18);
+    card->addView(heading);
+
+    auto* row = new brls::Box(brls::Axis::ROW);
+    row->setAlignItems(brls::AlignItems::CENTER);
+    auto* qr = new QrCodeView(address, 250);
+    qr->setMarginRight(32);
+    qr->setShrink(0);
+    row->addView(qr);
+
+    auto* steps = new brls::Box(brls::Axis::COLUMN);
+    steps->setGrow(1.0f);
+    steps->setShrink(1.0f);
+    steps->addView(MakeLabel(
+        TrFormat("1. Connecte ton téléphone au même réseau Wi-Fi que la Switch.\n"
+                 "2. Scanne ce QR code avec l'appareil photo, ou ouvre cette adresse :\n{}\n"
+                 "3. Touche « Ouvrir la page de connexion Amazon » et connecte-toi.\n"
+                 "4. Copie l'adresse de la dernière page affichée, reviens sur la page LunaNX et colle-la.",
+                 {address}),
+        18, nvgRGB(220, 222, 230)));
+    auto* waiting = MakeLabel(Tr("En attente de ton téléphone…"), 17, nvgRGB(176, 150, 255));
+    waiting->setMarginTop(18);
+    steps->addView(waiting);
+    row->addView(steps);
+    card->addView(row);
+
+    auto* cancel = new brls::Button();
+    cancel->setText(Tr("Annuler"));
+    cancel->setStyle(&brls::BUTTONSTYLE_BORDERED);
+    cancel->setMarginTop(24);
+    cancel->registerClickAction([this](brls::View*) {
+        auto alive = alive_;
+        brls::sync([this, alive]() {
+            if (*alive)
+                ShowSignIn("");
+        });
+        return true;
+    });
+    card->addView(cancel);
+
+    content_->addView(card);
+    first_card_ = cancel;
+    brls::Application::giveFocus(cancel);
+}
+
 void LibraryView::ShowShelves(const std::vector<luna::Shelf>& shelves)
 {
     if (&shelves != &shelves_)
         shelves_ = shelves;
+    StopPhoneSignIn();
     content_->clearViews();
     first_card_ = nullptr;
     grid_ = nullptr;

@@ -28,6 +28,7 @@ license and copyright notices; the full license texts are in the [licenses/](lic
 | Jansson | JSON | MIT | [Jansson-MIT.txt](licenses/Jansson-MIT.txt) |
 | zlib | Compression | zlib | [zlib.txt](licenses/zlib.txt) |
 | bzip2 | Compression | bzip2 license | [bzip2.txt](licenses/bzip2.txt) |
+| QR Code generator (Project Nayuki) | QR code of the phone sign-in screen | MIT | [qrcodegen-MIT.txt](licenses/qrcodegen-MIT.txt) |
 | Material Icons (Google) | Icons | Apache-2.0 | [MaterialIcons-Apache-2.0.txt](licenses/MaterialIcons-Apache-2.0.txt) |
 
 Because the binary includes GPL-licensed code (FFmpeg built with `--enable-gpl` and code derived

@@ -980,6 +980,167 @@ const Translation kTranslations[] = {
       "O login pelo navegador só está disponível no Switch",
       "Вход через браузер доступен только на Switch",
       "仅在 Switch 上可通过浏览器登录"}},
+    // Connexion par téléphone (écran de la Switch).
+    {"Se connecter avec mon téléphone",
+     {"Sign in with my phone",
+      "Mit meinem Handy anmelden",
+      "Iniciar sesión con mi teléfono",
+      "Accedi con il mio telefono",
+      "Entrar com meu celular",
+      "Войти с телефона",
+      "用手机登录"}},
+    {"Le navigateur de la Switch ne s'ouvre pas ou affiche « This feature is not available » ? Connecte-toi "
+     "depuis ton téléphone : scanne un QR code, puis connecte-toi sur la vraie page Amazon.",
+     {"The Switch browser does not open or shows \"This feature is not available\"? Sign in from your phone: "
+      "scan a QR code, then sign in on the real Amazon page.",
+      "Der Switch-Browser öffnet sich nicht oder zeigt „This feature is not available“? Melde dich mit "
+      "deinem Handy an: QR-Code scannen und auf der echten Amazon-Seite anmelden.",
+      "¿El navegador de la Switch no se abre o muestra «This feature is not available»? Inicia sesión desde "
+      "tu teléfono: escanea un código QR y entra en la página real de Amazon.",
+      "Il browser della Switch non si apre o mostra «This feature is not available»? Accedi dal telefono: "
+      "scansiona un codice QR, poi accedi sulla vera pagina di Amazon.",
+      "O navegador do Switch não abre ou mostra \"This feature is not available\"? Entre pelo celular: "
+      "escaneie um QR code e faça login na página real da Amazon.",
+      "Браузер Switch не открывается или пишет «This feature is not available»? Войдите с телефона: "
+      "отсканируйте QR-код и войдите на настоящей странице Amazon.",
+      "Switch 浏览器无法打开或显示 “This feature is not available”？请用手机登录：扫描二维码，然后在 Amazon 官方页面登录。"}},
+    {"Connexion avec ton téléphone",
+     {"Sign in with your phone",
+      "Anmeldung mit deinem Handy",
+      "Iniciar sesión con tu teléfono",
+      "Accesso con il tuo telefono",
+      "Login com seu celular",
+      "Вход с телефона",
+      "用手机登录"}},
+    {"1. Connecte ton téléphone au même réseau Wi-Fi que la Switch.\n2. Scanne ce QR code avec l'appareil photo, "
+     "ou ouvre cette adresse :\n{}\n3. Touche « Ouvrir la page de connexion Amazon » et connecte-toi.\n4. Copie "
+     "l'adresse de la dernière page affichée, reviens sur la page LunaNX et colle-la.",
+     {"1. Connect your phone to the same Wi-Fi network as the Switch.\n2. Scan this QR code with the camera, or "
+      "open this address:\n{}\n3. Tap \"1. Open the Amazon sign-in page\" and sign in.\n4. Copy the address of "
+      "the last page shown, go back to the LunaNX page and paste it.",
+      "1. Verbinde dein Handy mit demselben WLAN wie die Switch.\n2. Scanne diesen QR-Code mit der Kamera oder "
+      "öffne diese Adresse:\n{}\n3. Tippe auf „1. Amazon-Anmeldeseite öffnen“ und melde dich an.\n4. Kopiere die "
+      "Adresse der zuletzt angezeigten Seite, kehre zur LunaNX-Seite zurück und füge sie ein.",
+      "1. Conecta tu teléfono a la misma red Wi-Fi que la Switch.\n2. Escanea este código QR con la cámara o "
+      "abre esta dirección:\n{}\n3. Toca «1. Abrir la página de inicio de sesión de Amazon» e inicia sesión.\n"
+      "4. Copia la dirección de la última página mostrada, vuelve a la página de LunaNX y pégala.",
+      "1. Collega il telefono alla stessa rete Wi-Fi della Switch.\n2. Scansiona questo codice QR con la "
+      "fotocamera o apri questo indirizzo:\n{}\n3. Tocca «1. Apri la pagina di accesso di Amazon» e accedi.\n"
+      "4. Copia l'indirizzo dell'ultima pagina mostrata, torna alla pagina di LunaNX e incollalo.",
+      "1. Conecte o celular à mesma rede Wi-Fi do Switch.\n2. Escaneie este QR code com a câmera ou abra este "
+      "endereço:\n{}\n3. Toque em \"1. Abrir a página de login da Amazon\" e faça login.\n4. Copie o endereço da "
+      "última página exibida, volte à página do LunaNX e cole-o.",
+      "1. Подключите телефон к той же сети Wi-Fi, что и Switch.\n2. Отсканируйте этот QR-код камерой или "
+      "откройте адрес:\n{}\n3. Нажмите «1. Открыть страницу входа Amazon» и войдите.\n4. Скопируйте адрес "
+      "последней открытой страницы, вернитесь на страницу LunaNX и вставьте его.",
+      "1. 将手机连接到与 Switch 相同的 Wi-Fi 网络。\n2. 用相机扫描此二维码，或打开此地址：\n{}\n"
+      "3. 点按“1. 打开 Amazon 登录页面”并登录。\n4. 复制最后显示页面的地址，返回 LunaNX 页面并粘贴。"}},
+    {"En attente de ton téléphone…",
+     {"Waiting for your phone…",
+      "Warte auf dein Handy…",
+      "Esperando a tu teléfono…",
+      "In attesa del telefono…",
+      "Aguardando seu celular…",
+      "Ожидание телефона…",
+      "正在等待手机…"}},
+    {"Annuler",
+     {"Cancel",
+      "Abbrechen",
+      "Cancelar",
+      "Annulla",
+      "Cancelar",
+      "Отмена",
+      "取消"}},
+    {"La Switch n'est pas connectée au réseau. Vérifie le Wi-Fi, puis réessaie.",
+     {"The Switch is not connected to the network. Check the Wi-Fi, then try again.",
+      "Die Switch ist nicht mit dem Netzwerk verbunden. Prüfe das WLAN und versuche es erneut.",
+      "La Switch no está conectada a la red. Comprueba el Wi-Fi y vuelve a intentarlo.",
+      "La Switch non è connessa alla rete. Controlla il Wi-Fi, poi riprova.",
+      "O Switch não está conectado à rede. Verifique o Wi-Fi e tente novamente.",
+      "Switch не подключена к сети. Проверьте Wi-Fi и повторите попытку.",
+      "Switch 未连接到网络。请检查 Wi-Fi，然后重试。"}},
+    {"Impossible de démarrer la connexion par téléphone ({}).",
+     {"Unable to start phone sign-in ({}).",
+      "Die Anmeldung per Handy konnte nicht gestartet werden ({}).",
+      "No se puede iniciar el inicio de sesión con el teléfono ({}).",
+      "Impossibile avviare l'accesso dal telefono ({}).",
+      "Não foi possível iniciar o login pelo celular ({}).",
+      "Не удалось запустить вход с телефона ({}).",
+      "无法启动手机登录（{}）。"}},
+    // Connexion par téléphone (page affichée sur le téléphone).
+    {"Connexion à Amazon pour LunaNX",
+     {"Amazon sign-in for LunaNX",
+      "Amazon-Anmeldung für LunaNX",
+      "Inicio de sesión de Amazon para LunaNX",
+      "Accesso Amazon per LunaNX",
+      "Login da Amazon para o LunaNX",
+      "Вход в Amazon для LunaNX",
+      "为 LunaNX 登录 Amazon"}},
+    {"1. Ouvrir la page de connexion Amazon",
+     {"1. Open the Amazon sign-in page",
+      "1. Amazon-Anmeldeseite öffnen",
+      "1. Abrir la página de inicio de sesión de Amazon",
+      "1. Apri la pagina di accesso di Amazon",
+      "1. Abrir a página de login da Amazon",
+      "1. Открыть страницу входа Amazon",
+      "1. 打开 Amazon 登录页面"}},
+    {"2. Connecte-toi avec ton e-mail, ton mot de passe et, si besoin, le code reçu. À la fin, Amazon affiche une "
+     "page introuvable ou une erreur : c'est normal.",
+     {"2. Sign in with your email, your password and, if asked, the code you received. At the end, Amazon shows a "
+      "\"page not found\" or an error: this is normal.",
+      "2. Melde dich mit E-Mail, Passwort und ggf. dem erhaltenen Code an. Am Ende zeigt Amazon „Seite nicht "
+      "gefunden“ oder einen Fehler: Das ist normal.",
+      "2. Inicia sesión con tu correo, tu contraseña y, si se pide, el código recibido. Al final, Amazon muestra "
+      "una página no encontrada o un error: es normal.",
+      "2. Accedi con e-mail, password e, se richiesto, il codice ricevuto. Alla fine Amazon mostra una pagina "
+      "non trovata o un errore: è normale.",
+      "2. Entre com seu e-mail, sua senha e, se pedido, o código recebido. No final, a Amazon mostra uma página "
+      "não encontrada ou um erro: é normal.",
+      "2. Войдите с вашим e-mail, паролем и, если нужно, полученным кодом. В конце Amazon покажет «страница не "
+      "найдена» или ошибку: это нормально.",
+      "2. 使用你的邮箱、密码以及（如有需要）收到的验证码登录。最后 Amazon 会显示“找不到页面”或错误：这是正常的。"}},
+    {"3. Copie l'adresse complète de cette dernière page (barre d'adresse), reviens sur cet onglet et colle-la ici :",
+     {"3. Copy the full address of that last page (address bar), come back to this tab and paste it here:",
+      "3. Kopiere die vollständige Adresse dieser letzten Seite (Adressleiste), kehre zu diesem Tab zurück und "
+      "füge sie hier ein:",
+      "3. Copia la dirección completa de esa última página (barra de direcciones), vuelve a esta pestaña y pégala "
+      "aquí:",
+      "3. Copia l'indirizzo completo di quest'ultima pagina (barra degli indirizzi), torna su questa scheda e "
+      "incollalo qui:",
+      "3. Copie o endereço completo dessa última página (barra de endereços), volte para esta aba e cole-o aqui:",
+      "3. Скопируйте полный адрес этой последней страницы (адресная строка), вернитесь на эту вкладку и вставьте "
+      "его сюда:",
+      "3. 复制最后那个页面的完整地址（地址栏），返回此标签页并粘贴到这里："}},
+    {"Envoyer à la Switch",
+     {"Send to the Switch",
+      "An die Switch senden",
+      "Enviar a la Switch",
+      "Invia alla Switch",
+      "Enviar para o Switch",
+      "Отправить на Switch",
+      "发送到 Switch"}},
+    {"Cette adresse ne contient pas de code de connexion Amazon. Copie bien l'adresse complète de la dernière page, "
+     "puis réessaie.",
+     {"This address does not contain an Amazon sign-in code. Make sure you copy the full address of the last page, "
+      "then try again.",
+      "Diese Adresse enthält keinen Amazon-Anmeldecode. Kopiere die vollständige Adresse der letzten Seite und "
+      "versuche es erneut.",
+      "Esta dirección no contiene un código de inicio de sesión de Amazon. Copia la dirección completa de la "
+      "última página y vuelve a intentarlo.",
+      "Questo indirizzo non contiene un codice di accesso Amazon. Copia l'indirizzo completo dell'ultima pagina, "
+      "poi riprova.",
+      "Este endereço não contém um código de login da Amazon. Copie o endereço completo da última página e tente "
+      "novamente.",
+      "Этот адрес не содержит кода входа Amazon. Скопируйте полный адрес последней страницы и повторите попытку.",
+      "此地址不包含 Amazon 登录代码。请复制最后一个页面的完整地址，然后重试。"}},
+    {"C'est bon ! Retourne sur ta Switch : LunaNX termine la connexion.",
+     {"All set! Go back to your Switch: LunaNX is finishing the sign-in.",
+      "Geschafft! Zurück zur Switch: LunaNX schließt die Anmeldung ab.",
+      "¡Listo! Vuelve a tu Switch: LunaNX está terminando el inicio de sesión.",
+      "Fatto! Torna sulla Switch: LunaNX sta completando l'accesso.",
+      "Pronto! Volte para o seu Switch: o LunaNX está concluindo o login.",
+      "Готово! Вернитесь к Switch: LunaNX завершает вход.",
+      "完成！请回到你的 Switch：LunaNX 正在完成登录。"}},
     {"Canada (amazon.ca)",
      {"Canada (amazon.ca)",
       "Kanada (amazon.ca)",
