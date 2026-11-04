@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.0.1
+
+**New features**
+- New countries requested by several users: all 14 Luna countries are now supported. New:
+  Poland (amazon.pl), Netherlands (amazon.nl), Sweden (amazon.se), Belgium (amazon.com.be), and
+  Austria, Portugal and Luxembourg, which use the amazon.de or amazon.es store while LunaNX tells
+  Luna the player's real country. Choose your country at first launch or in Settings → Amazon
+  account.
+- Sign-in for amazon.pl, .nl, .se and .com.be accounts uses Amazon's European sign-in page on
+  amazon.de, shown in the store's language (European Amazon accounts are shared).
+- Interface in Polish, Dutch and Swedish (*Polski*, *Nederlands*, *Svenska*): 11 languages in
+  total. The country's language is applied automatically when it is chosen.
+- The Luna catalog and game texts now also follow the interface language for Dutch, Polish,
+  Portuguese and Swedish (Portuguese catalog in European Portuguese, as on the Luna website).
+
+**Known issue**
+- Sign in with Amazon (Switch browser) does not work on firmware 23.x (CFW) for now. Use Sign in
+  with my phone (QR code), or the `cookies.txt` fallback.
+
 ## v2.0
 
 **New features**

@@ -8,15 +8,30 @@
 namespace lunanx::luna
 {
 
-// Boutique Amazon du compte : détermine les domaines de connexion et de Luna.
+// Pays Luna proposé au choix : détermine les domaines de connexion et de Luna, et ce que
+// LunaNX annonce à Luna (pays de résidence, langue du catalogue, fuseau horaire).
 struct AmazonMarket
 {
-    std::string code;        // « fr », « de », « co.uk », « es », « it », « com », « ca »
-    std::string label;       // affiché dans les réglages
+    // Identifiant enregistré dans les réglages et la session : « fr », « de », « co.uk », « es »,
+    // « it », « pl », « nl », « se », « com.be », « at », « pt », « lu », « com », « ca ».
+    std::string code;
+    std::string label;          // affiché dans les réglages
     std::string audible_suffix;
     std::string marketplace_id;
-    std::string language;    // langue de la boutique, appliquée à LunaNX quand on la choisit
-    std::string native_name; // nom du pays dans sa langue, pour le choix au premier lancement
+    std::string language;       // langue de LunaNX appliquée quand on choisit ce pays
+    std::string native_name;    // nom du pays dans sa langue, pour le choix au premier lancement
+    // Boutique Amazon du compte (amazon.<domain>, cookies .amazon.<domain>, luna.amazon.<domain>).
+    // Autriche, Luxembourg et Portugal n'ont pas de boutique propre : leurs abonnés Prime
+    // passent par amazon.de ou amazon.es, comme sur le site Luna.
+    std::string domain;
+    // Domaine de la connexion et de l'enregistrement (www.amazon.<x>, api.amazon.<x>). C'est celui
+    // de la boutique, sauf pour amazon.pl, .nl, .se et .com.be : la page de connexion Audible n'y
+    // existe pas (et api.amazon.pl, .se, .com.be non plus). Les comptes européens étant communs,
+    // la connexion passe par amazon.de ; les cookies restent ceux de la boutique.
+    std::string identity_code;
+    std::string country;        // pays de résidence annoncé à Luna (x-amz-country-of-residence)
+    std::string locale;         // langue du catalogue Luna par défaut (x-amz-locale)
+    std::string timezone;       // x-amz-timezone
 };
 
 const std::vector<AmazonMarket>& AmazonMarkets();

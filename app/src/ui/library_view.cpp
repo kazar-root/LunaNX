@@ -435,14 +435,20 @@ void LibraryView::ShowStorePicker()
 
     // Boutiques Luna, par ordre alphabétique de leur nom dans leur propre langue.
     std::vector<luna::AmazonMarket> markets = luna::AmazonMarkets();
-    std::sort(markets.begin(), markets.end(), [](const luna::AmazonMarket& a, const luna::AmazonMarket& b) {
-        return a.native_name < b.native_name;
+    // « Österreich » se range avec les O (l'ordre des octets UTF-8 la placerait en dernier).
+    auto sort_key = [](std::string name) {
+        if (name.compare(0, 2, "\xC3\x96") == 0)
+            name.replace(0, 2, "O");
+        return name;
+    };
+    std::sort(markets.begin(), markets.end(), [&sort_key](const luna::AmazonMarket& a, const luna::AmazonMarket& b) {
+        return sort_key(a.native_name) < sort_key(b.native_name);
     });
     const std::string current = LoadStreamSettings().amazon_market;
     for (const auto& market : markets)
     {
         auto* button = new brls::Button();
-        button->setText(market.native_name + "  ·  amazon." + market.code);
+        button->setText(market.native_name + "  ·  amazon." + market.domain);
         button->setStyle(market.code == current ? &brls::BUTTONSTYLE_PRIMARY : &brls::BUTTONSTYLE_BORDERED);
         button->setMarginBottom(10);
         const std::string code = market.code;
@@ -557,7 +563,7 @@ void LibraryView::ShowSignIn(const std::string& reason)
     card->addView(phone_hint);
 
     auto* store_button = new brls::Button();
-    store_button->setText(Tr("Changer de boutique") + "  ·  amazon." + market.code);
+    store_button->setText(Tr("Changer de boutique") + "  ·  amazon." + market.domain);
     store_button->setStyle(&brls::BUTTONSTYLE_BORDERED);
     store_button->setMarginBottom(20);
     store_button->registerClickAction([this](brls::View*) {

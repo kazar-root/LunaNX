@@ -2,10 +2,10 @@
   <img src="resources/img/lunanx_logo.png" width="220" alt="LunaNX logo">
 </p>
 
-<h1 align="center">LunaNX v2.0 — Amazon Luna on Nintendo Switch</h1>
+<h1 align="center">LunaNX v2.0.1 — Amazon Luna on Nintendo Switch</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0-7c5cff" alt="Version 2.0">
+  <img src="https://img.shields.io/badge/version-2.0.1-7c5cff" alt="Version 2.0.1">
   <img src="https://img.shields.io/badge/platform-Nintendo%20Switch%20(homebrew)-e60012" alt="Nintendo Switch homebrew">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License GPL-3.0">
 </p>
@@ -19,6 +19,46 @@ library, and streams the game to the console with your controller as the input d
 > sponsored by Amazon or Nintendo. Amazon Luna and Nintendo Switch are trademarks of their
 > respective owners. You need your own Amazon account with access to Luna; the games available
 > depend on your subscription and your country.
+
+## What's new in v2.0.1
+
+**Six new countries: LunaNX now covers all 14 Luna countries.** This update adds the new
+countries requested by several users. In addition to France, Germany, United Kingdom, Spain,
+Italy, United States and Canada, you can now choose:
+
+| Country | Amazon store | Language applied |
+| --- | --- | --- |
+| Poland | amazon.pl | Polski |
+| Netherlands | amazon.nl | Nederlands |
+| Sweden | amazon.se | Svenska |
+| Belgium | amazon.com.be | Nederlands (Français available) |
+| Austria | amazon.de | Deutsch |
+| Portugal | amazon.es | Português |
+| Luxembourg | amazon.de | Français |
+
+**Three new interface languages**: Polski, Nederlands and Svenska (11 languages in total).
+
+- Austria, Portugal and Luxembourg have no Amazon store of their own: choose your country and
+  LunaNX uses the Amazon store where Prime is offered there (amazon.de or amazon.es), while
+  telling Luna your real country, as the Luna website does. In Luxembourg, if your Prime
+  subscription is on amazon.fr, choose **France** instead.
+- For amazon.pl, amazon.nl, amazon.se and amazon.com.be accounts, the sign-in page is Amazon's
+  European sign-in page on **amazon.de**, shown in your store's language. European Amazon
+  accounts are shared, so your usual email and password work there.
+
+**If you notice a problem, don't hesitate to contact me** by opening an issue in the
+[Issues](../../issues) page.
+
+### How to sign in
+
+There are currently **3 ways** to sign in to your Amazon account:
+
+1. **Sign in with Amazon** (directly in the Switch browser). ⚠️ This method **does not work on
+   firmware 23.x (CFW) for now**: use method 2 instead.
+2. **Sign in with my phone** (QR code): the recommended method, which does not use the Switch
+   browser (see [What's new in v2.0](#whats-new-in-v20) below).
+3. **`cookies.txt` file** exported once from a PC browser (fallback; instructions are shown on
+   the sign-in screen).
 
 ## What's new in v2.0
 
@@ -36,11 +76,11 @@ Your password is typed only on Amazon's site: LunaNX never sees it. No PC, no br
 and no `cookies.txt` file are needed.
 
 If the Switch browser works on your console, **Sign in with Amazon** still lets you sign in
-directly on the Switch, without a phone.
+directly on the Switch, without a phone (not on firmware 23.x for now).
 
-LunaNX works with the Amazon stores of the countries where Luna is available: France, Germany,
-United Kingdom, Spain, Italy, United States and Canada (with the North American Luna server fix
-of v1.2).
+LunaNX works in all the countries where Luna is available: France, Germany, United Kingdom,
+Spain, Italy, United States and Canada (with the North American Luna server fix of v1.2), and,
+since v2.0.1, Poland, Netherlands, Sweden, Belgium, Austria, Portugal and Luxembourg.
 
 I hope you'll enjoy this update and that it finally lets you make the most of Luna on your
 Switch! — *KazaR-RooT*
@@ -55,13 +95,15 @@ next versions.
 
 ## Features
 
-- **Amazon sign-in, two ways**: in the Switch browser, or **with your phone** (QR code) when the
-  Switch browser is not available. Both use the official Amazon sign-in page; the session then
-  renews automatically. Your password is never seen or stored by LunaNX.
-- **Amazon stores**: France, Germany, United Kingdom, Spain, Italy, United States and Canada,
-  chosen at first launch.
-- **Interface in 8 languages**: Deutsch, English, Español, Français, Italiano, Português,
-  Русский, 简体中文.
+- **Amazon sign-in, three ways**: **with your phone** (QR code), in the Switch browser (not on
+  firmware 23.x for now), or with a `cookies.txt` file as a fallback. The first two use the
+  official Amazon sign-in page; the session then renews automatically. Your password is never
+  seen or stored by LunaNX.
+- **All 14 Luna countries**: France, Germany, United Kingdom, Spain, Italy, Poland,
+  Netherlands, Sweden, Belgium, Austria, Portugal, Luxembourg, United States and Canada, chosen
+  at first launch.
+- **Interface in 11 languages**: Deutsch, English, Español, Français, Italiano, Nederlands,
+  Polski, Português, Русский, Svenska, 简体中文.
 - **Luna library**, loaded automatically:
   - **Featured** banner,
   - **Continue playing** (your last 10 games launched from LunaNX),
@@ -98,8 +140,9 @@ See **[INSTALLATION.md](INSTALLATION.md)** for step-by-step instructions. In sho
 
 1. Copy `LunaNX.nro` to `sdmc:/switch/LunaNX/` on your SD card.
 2. Start LunaNX from the Homebrew Menu **in application mode** (hold R while launching a game).
-3. Choose your Amazon store, then **Sign in with Amazon** (Switch browser) or **Sign in with my
-   phone** (QR code), and complete the sign-in on the official Amazon page.
+3. Choose your country, then **Sign in with my phone** (QR code) or **Sign in with Amazon**
+   (Switch browser, not on firmware 23.x for now), and complete the sign-in on the official
+   Amazon page.
 
 ## Usage
 
@@ -121,6 +164,8 @@ See **[INSTALLATION.md](INSTALLATION.md)** for step-by-step instructions. In sho
 
 ## Known limitations
 
+- **Sign in with Amazon** (Switch browser) does not work on firmware 23.x (CFW) for now: use
+  **Sign in with my phone** (QR code).
 - Streaming quality is fixed at **720p 60 fps** with software decoding.
 - **Application mode is required**: the Switch browser used for sign-in and the memory needed
   for streaming are not available from the Album (applet mode).

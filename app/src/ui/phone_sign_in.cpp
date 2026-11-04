@@ -222,7 +222,7 @@ bool PhoneSignInServer::Start(std::string& error)
     auto page = [&](const std::string& error_html) {
         return StorePage(
             "<h1>" + HtmlEscape(Tr("Connexion à Amazon pour LunaNX")) + "</h1>"
-            "<p class=\"store\">amazon." + HtmlEscape(market.code) + "</p>" + error_html +
+            "<p class=\"store\">amazon." + HtmlEscape(market.domain) + "</p>" + error_html +
             "<a class=\"btn\" href=\"" + HtmlEscape(pending_.sign_in_url) + "\" target=\"_blank\" rel=\"noopener\">" +
             HtmlEscape(Tr("1. Ouvrir la page de connexion Amazon")) + "</a>"
             "<p>" + HtmlEscape(Tr("2. Connecte-toi avec ton e-mail, ton mot de passe et, si besoin, le code reçu. "
@@ -231,8 +231,8 @@ bool PhoneSignInServer::Start(std::string& error)
             HtmlEscape(Tr("3. Copie l'adresse complète de cette dernière page (barre d'adresse), reviens sur cet "
                           "onglet et colle-la ici :")) +
             "</p><form method=\"post\"><textarea name=\"url\" autocapitalize=\"off\" autocorrect=\"off\" "
-            "spellcheck=\"false\" placeholder=\"https://www.amazon." + HtmlEscape(market.code) +
-            "/ap/maplanding?...\"></textarea><button type=\"submit\">" + HtmlEscape(Tr("Envoyer à la Switch")) +
+            "spellcheck=\"false\" placeholder=\"" + HtmlEscape(pending_.callback_url) +
+            "?...\"></textarea><button type=\"submit\">" + HtmlEscape(Tr("Envoyer à la Switch")) +
             "</button></form>");
     };
     page_html_ = page("");

@@ -358,7 +358,7 @@ void ParseGameDetail(json_t* page, Game& game)
     });
 }
 
-// Détecte la boutique Amazon d'origine des cookies (amazon.fr, .de, .co.uk, .com...).
+// Détecte la boutique Amazon d'origine des cookies (amazon.fr, .de, .co.uk, .pl, .nl, .com...).
 struct Marketplace
 {
     const char* cookie_suffix;
@@ -385,6 +385,10 @@ constexpr Marketplace kMarketplaces[] = {
     {"acbuk", "https://luna.amazon.co.uk", "A1F83G8C2ARO7P", "en_GB", "GB", "Europe/London"},
     {"acbes", "https://luna.amazon.es", "A1RKKUPIHCS9HS", "es_ES", "ES", "Europe/Madrid"},
     {"acbit", "https://luna.amazon.it", "APJ6JRA9NG5V4", "it_IT", "IT", "Europe/Rome"},
+    {"acbpl", "https://luna.amazon.pl", "A1C3SOZRARQ6R3", "pl_PL", "PL", "Europe/Warsaw"},
+    {"acbnl", "https://luna.amazon.nl", "A1805IZSGTT6HS", "nl_NL", "NL", "Europe/Amsterdam"},
+    {"acbse", "https://luna.amazon.se", "A2NODRKZP88ZB9", "sv_SE", "SE", "Europe/Stockholm"},
+    {"acbbe", "https://luna.amazon.com.be", "AMEN7PMS3EDWL", "nl_NL", "BE", "Europe/Brussels"},
     {"acbca", "https://luna.amazon.ca", "A2EUQ1WTGCTBG2", "en_CA", "CA", "America/Toronto"},
     {"main", "https://luna.amazon.com", "ATVPDKIKX0DER", "en_US", "US", "America/New_York"},
 };
@@ -486,18 +490,14 @@ void LunaClient::ApplyMarketDefaults()
 {
     if (!registration_)
         return;
+    // Le pays choisi prime sur la boutique des cookies : un compte amazon.de peut être
+    // autrichien ou luxembourgeois, un compte amazon.es portugais.
     const AmazonMarket& market = FindAmazonMarket(registration_->market_code);
-    account_.luna_origin = "https://luna.amazon." + market.code;
+    account_.luna_origin = "https://luna.amazon." + market.domain;
     account_.marketplace_id = market.marketplace_id;
-    for (const auto& known : kMarketplaces)
-    {
-        if (std::string(known.marketplace_id) == market.marketplace_id)
-        {
-            account_.locale = known.locale;
-            account_.country = known.country;
-            account_.timezone = known.timezone;
-        }
-    }
+    account_.locale = market.locale;
+    account_.country = market.country;
+    account_.timezone = market.timezone;
 }
 
 bool LunaClient::SetContentLanguage(const std::string& language)
@@ -505,7 +505,7 @@ bool LunaClient::SetContentLanguage(const std::string& language)
     if (market_locale_.empty())
         market_locale_ = account_.locale;
     const std::string& country = account_.country;
-    // Luna ne propose que ses langues de boutique ; pour les autres (portugais, russe,
+    // Langues du site Luna (même correspondance que luna.amazon.*) ; pour les autres (russe,
     // chinois), le catalogue et les jeux restent dans la langue de la boutique.
     std::string locale = market_locale_;
     if (language == "en")
@@ -518,6 +518,14 @@ bool LunaClient::SetContentLanguage(const std::string& language)
         locale = "es_ES";
     else if (language == "it")
         locale = "it_IT";
+    else if (language == "nl")
+        locale = "nl_NL";
+    else if (language == "pl")
+        locale = "pl_PL";
+    else if (language == "pt")
+        locale = "pt_PT";
+    else if (language == "sv")
+        locale = "sv_SE";
     account_.locale = locale;
     return locale != market_locale_;
 }

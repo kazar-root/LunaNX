@@ -32,13 +32,24 @@ memory needed for streaming are not available there.
 
 ## 3. Sign in to Amazon
 
-1. At first launch, choose your Amazon store (France, Germany, United Kingdom, Spain, Italy,
-   United States or Canada). LunaNX switches to the store's language; you can change the
+1. At first launch, choose your country among the 14 Luna countries (France, Germany, United
+   Kingdom, Spain, Italy, Poland, Netherlands, Sweden, Belgium, Austria, Portugal, Luxembourg,
+   United States, Canada). LunaNX switches to the country's language; you can change the
    language later in **Settings → Language**.
+
+   > [!NOTE]
+   > - **Austria, Portugal, Luxembourg**: these countries have no Amazon store of their own.
+   >   LunaNX uses amazon.de (Austria, Luxembourg) or amazon.es (Portugal), the store where your
+   >   Prime subscription is. In Luxembourg, if your Prime is on amazon.fr, choose **France**.
+   > - **Poland, Netherlands, Sweden, Belgium**: the sign-in page is Amazon's European sign-in
+   >   page on **amazon.de**, shown in your store's language. This is expected: European Amazon
+   >   accounts are shared, so sign in with your usual email and password. With **Sign in with
+   >   my phone**, the last page address therefore starts with
+   >   `https://www.amazon.de/ap/maplanding`.
 2. Choose how to sign in:
-   - **Sign in with Amazon**: the official Amazon sign-in page opens in the Switch browser. Enter
-     your email, your password and, if asked, the verification code. The browser closes by
-     itself and your Luna library appears.
+   - **Sign in with Amazon** (not on firmware 23.x for now: use the phone below): the official
+     Amazon sign-in page opens in the Switch browser. Enter your email, your password and, if
+     asked, the verification code. The browser closes by itself and your Luna library appears.
    - **Sign in with my phone**, if the Switch browser does not open or shows "This feature is not
      available":
      1. Connect your phone or tablet to the same Wi-Fi network as the Switch.
