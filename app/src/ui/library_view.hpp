@@ -11,6 +11,8 @@
 namespace lunanx
 {
 
+class PhoneSignInServer;
+
 // Écran principal : connexion au compte, puis bibliothèque Luna (jaquettes ou liste).
 class LibraryView : public brls::Box
 {
@@ -30,6 +32,11 @@ class LibraryView : public brls::Box
     void ChooseStore(const std::string& market_code);
     void RefreshHeaderLanguage();
     void SignInWithAmazon();
+    // Connexion depuis un téléphone (QR code) : n'utilise pas le navigateur de la Switch.
+    void SignInWithPhone();
+    void StopPhoneSignIn();
+    // Échange le code d'autorisation contre un enregistrement d'appareil, puis recharge.
+    void CompleteSignIn(const luna::PendingSignIn& pending, const std::string& code);
     void ShowShelves(const std::vector<luna::Shelf>& shelves);
     void ShowGameList(const std::vector<luna::Game>& games);
     void ShowCovers(const std::vector<luna::Shelf>& shelves, const std::vector<luna::Game>& games);
@@ -54,6 +61,8 @@ class LibraryView : public brls::Box
     std::shared_ptr<luna::LunaClient> client_;
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
     bool loading_ = false;
+    // Serveur local de la connexion par téléphone, actif seulement sur son écran.
+    std::unique_ptr<PhoneSignInServer> phone_server_;
 
     // Catalogue affiché, gardé pour redessiner sans retélécharger.
     std::vector<luna::Shelf> shelves_;

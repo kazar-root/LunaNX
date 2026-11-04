@@ -33,12 +33,21 @@ memory needed for streaming are not available there.
 ## 3. Sign in to Amazon
 
 1. At first launch, choose your Amazon store (France, Germany, United Kingdom, Spain, Italy,
-   Poland, United States or Canada). LunaNX switches to the store's language; you can change
-   the language later in **Settings → Language**.
-2. Choose **Sign in with Amazon**.
-3. The official Amazon sign-in page opens in the Switch browser. Enter your email, your password
-   and, if asked, the verification code.
-4. The browser closes by itself and your Luna library appears.
+   Poland, United States or Canada). LunaNX switches to the store's language; you can change the
+   language later in **Settings → Language**.
+2. Choose how to sign in:
+   - **Sign in with Amazon**: the official Amazon sign-in page opens in the Switch browser. Enter
+     your email, your password and, if asked, the verification code. The browser closes by
+     itself and your Luna library appears.
+   - **Sign in with my phone**, if the Switch browser does not open or shows "This feature is not
+     available":
+     1. Connect your phone or tablet to the same Wi-Fi network as the Switch.
+     2. Scan the QR code shown on the Switch (or type the address shown under it).
+     3. On the LunaNX page, tap **1. Open the Amazon sign-in page** and sign in on Amazon.
+     4. At the end, Amazon shows a "page not found" page or an error: this is normal. Copy the
+        full address of that page from the address bar.
+     5. Go back to the LunaNX tab, paste the address and tap **Send to the Switch**. Your Luna
+        library appears on the Switch.
 
 Wrong store? Choose **Change store** on the sign-in screen, or change it later in
 **Settings → Amazon account**.

@@ -2,10 +2,10 @@
   <img src="resources/img/lunanx_logo.png" width="220" alt="LunaNX logo">
 </p>
 
-<h1 align="center">LunaNX v1.2 — Amazon Luna on Nintendo Switch</h1>
+<h1 align="center">LunaNX v2.0 — Amazon Luna on Nintendo Switch</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.2-7c5cff" alt="Version 1.2">
+  <img src="https://img.shields.io/badge/version-2.0-7c5cff" alt="Version 2.0">
   <img src="https://img.shields.io/badge/platform-Nintendo%20Switch%20(homebrew)-e60012" alt="Nintendo Switch homebrew">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License GPL-3.0">
 </p>
@@ -20,16 +20,23 @@ library, and streams the game to the console with your controller as the input d
 > respective owners. You need your own Amazon account with access to Luna; the games available
 > depend on your subscription and your country.
 
-## What's new in v1.2
+## What's new in v2.0
 
-US and Canadian users got a **"service unavailable"** error after signing in: LunaNX always
-contacted the European Luna server. It now uses the Luna server of your country.
+**Sign in with your phone.** On some consoles the Switch browser does not open the Amazon
+sign-in page and shows **"This feature is not available"**. LunaNX v2.0 adds a second way to
+sign in that does not use the Switch browser at all:
 
-I hope you'll enjoy this update! — *KazaR-RooT*
+1. On the sign-in screen, choose **Sign in with my phone**.
+2. Scan the QR code shown on the Switch with your phone or tablet (on the same Wi-Fi network).
+3. Sign in on the **official Amazon page** in your phone's browser.
+4. Copy the address of the last page Amazon shows, paste it into the LunaNX page and send it to
+   the Switch. Your Luna library appears.
 
-## What's new in v1.1
+Your password is typed only on Amazon's site: LunaNX never sees it. No PC, no browser extension
+and no `cookies.txt` file are needed.
 
-**New features**
+If the Switch browser works on your console, **Sign in with Amazon** still lets you sign in
+directly on the Switch, without a phone.
 
 - **8 interface languages**: Deutsch, English, Español, Français, Italiano, Português, Русский
   and 简体中文. English by default, changeable at any time in **Settings → Language**. The Luna
@@ -45,25 +52,26 @@ I hope you'll enjoy this update! — *KazaR-RooT*
 - **Automatic return to the library** when a game session ends.
 - **Loading animation** (three purple dots) until the game picture appears.
 
-**Fixes and optimizations**
+LunaNX works with the Amazon stores of the countries where Luna is available: France, Germany,
+United Kingdom, Spain, Italy, Poland, United States and Canada (with the North American Luna
+server fix of v1.2).
 
-- Fixed a crash when browsing to the last games of the library: only the covers of the current
-  page are kept in memory, and oversized artwork is downscaled before display.
-- Fixed games shown two or three times in the library: duplicates are now detected by Amazon
-  ID or by title.
-- Fixed a crash when changing the language in Settings.
+I hope you'll enjoy this update and that it finally lets you make the most of Luna on your
+Switch! — *KazaR-RooT*
 
-## What's next: v2
+Earlier versions: see [CHANGELOG.md](CHANGELOG.md).
 
-A bigger update is planned: **LunaNX v2**, which should bring **mouse and keyboard support**.
-Until then, feel free to share your feedback, remarks and bug reports in the
-[Issues](../../issues) page: they will shape the next versions.
+## What's next
+
+**Mouse and keyboard support** is planned for a next version. Until then, feel free to share
+your feedback, remarks and bug reports in the [Issues](../../issues) page: they will shape the
+next versions.
 
 ## Features
 
-- **Amazon sign-in on the console**: the official Amazon sign-in page opens in the Switch
-  browser; the session then renews automatically. Your password is never seen or stored by
-  LunaNX.
+- **Amazon sign-in, two ways**: in the Switch browser, or **with your phone** (QR code) when the
+  Switch browser is not available. Both use the official Amazon sign-in page; the session then
+  renews automatically. Your password is never seen or stored by LunaNX.
 - **Amazon stores**: France, Germany, United Kingdom, Spain, Italy, Poland, United States and
   Canada, chosen at first launch.
 - **Interface in 8 languages**: Deutsch, English, Español, Français, Italiano, Português,
@@ -104,8 +112,8 @@ See **[INSTALLATION.md](INSTALLATION.md)** for step-by-step instructions. In sho
 
 1. Copy `LunaNX.nro` to `sdmc:/switch/LunaNX/` on your SD card.
 2. Start LunaNX from the Homebrew Menu **in application mode** (hold R while launching a game).
-3. Choose your Amazon store, then **Sign in with Amazon** and complete the sign-in in the Switch
-   browser.
+3. Choose your Amazon store, then **Sign in with Amazon** (Switch browser) or **Sign in with my
+   phone** (QR code), and complete the sign-in on the official Amazon page.
 
 ## Usage
 
@@ -130,6 +138,9 @@ See **[INSTALLATION.md](INSTALLATION.md)** for step-by-step instructions. In sho
 - Streaming quality is fixed at **720p 60 fps** with software decoding.
 - **Application mode is required**: the Switch browser used for sign-in and the memory needed
   for streaming are not available from the Album (applet mode).
+- **Phone sign-in**: the phone or tablet must be on the same Wi-Fi network as the Switch; guest
+  networks that isolate devices from each other block it. Paste the address soon after signing
+  in: Amazon's sign-in code is only valid for a short time.
 - No keyboard or mouse support: games that require them cannot be controlled.
 - Parental control PIN prompts from Luna are not supported.
 - Game availability depends on your Luna subscription and your country. Luna does not say in
@@ -233,7 +244,8 @@ Thanks to the developers of the open-source projects LunaNX is built on:
 [curl](https://curl.se), [Jansson](https://github.com/akheron/jansson),
 [cJSON](https://github.com/DaveGamble/cJSON), [Yoga](https://github.com/facebook/yoga),
 [NanoVG](https://github.com/memononen/nanovg), [fmt](https://github.com/fmtlib/fmt),
-zlib, bzip2 and Google's Material Icons.
+zlib, bzip2, Project Nayuki's [QR Code generator](https://www.nayuki.io/page/qr-code-generator-library)
+and Google's Material Icons.
 
 ---
 
