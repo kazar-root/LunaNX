@@ -37,15 +37,15 @@ library, and streams the game to the console with your controller as the input d
 countries requested by several users. In addition to France, Germany, United Kingdom, Spain,
 Italy, United States and Canada, you can now choose:
 
-| Country | Amazon store | Language applied |
+| Country | Language applied |
 | --- | --- | --- |
-| Poland | amazon.pl | Polski |
-| Netherlands | amazon.nl | Nederlands |
-| Sweden | amazon.se | Svenska |
-| Belgium | amazon.com.be | Nederlands (Français available) |
-| Austria | amazon.de | Deutsch |
-| Portugal | amazon.es | Português |
-| Luxembourg | amazon.de | Français |
+| Poland | Polski |
+| Netherlands | Nederlands |
+| Sweden | Svenska |
+| Belgium | Nederlands (Français available) |
+| Austria | Deutsch |
+| Portugal | Português |
+| Luxembourg | Français |
 
 **Three new interface languages**: Polski, Nederlands and Svenska (11 languages in total).
 
