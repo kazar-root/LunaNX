@@ -4,6 +4,8 @@
 
 #include <borealis.hpp>
 
+#include <memory>
+
 namespace lunanx
 {
 
@@ -12,11 +14,14 @@ class SettingsView : public brls::Box
 {
   public:
     SettingsView();
+    ~SettingsView() override;
 
   private:
     void Save();
 
     StreamSettings settings_;
+    std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
+    bool checking_update_ = false;
 };
 
 } // namespace lunanx

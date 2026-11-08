@@ -300,6 +300,38 @@ void LibraryView::ShowMessage(const std::string& title, const std::string& body)
     brls::Application::giveFocus(card);
 }
 
+static bool HasStoredAccount()
+{
+    luna::DeviceRegistration registration;
+    luna::CookieJar cookies;
+    return luna::AmazonAuth::Load(registration) || cookies.LoadDefault();
+}
+
+void LibraryView::ShowSignedOut()
+{
+    ++explore_generation_;
+    exploration_done_ = false;
+    client_.reset();
+    shelves_.clear();
+    catalog_.clear();
+    catalog_index_.clear();
+    grid_games_.clear();
+    grid_page_ = 0;
+    grid_shown_end_ = 0;
+    grid_ = nullptr;
+    grid_page_box_ = nullptr;
+    grid_row_ = nullptr;
+    pager_ = nullptr;
+    prev_button_ = nullptr;
+    next_button_ = nullptr;
+    page_label_ = nullptr;
+    all_games_count_ = nullptr;
+    rendered_layout_.clear();
+    recent_changed_ = false;
+    status_label_->setText("");
+    ShowSignIn({});
+}
+
 void LibraryView::Reload()
 {
     if (loading_)
@@ -391,6 +423,12 @@ void LibraryView::Reload()
             if (!*alive)
                 return;
             loading_ = false;
+            // Déconnexion demandée pendant ce chargement : son résultat ne doit pas s'afficher.
+            if (error_title != "sign-in" && !HasStoredAccount())
+            {
+                ShowSignedOut();
+                return;
+            }
             if (error_title == "sign-in")
             {
                 status_label_->setText("");
@@ -1015,6 +1053,18 @@ void LibraryView::AddDiscoveredGames(std::vector<luna::Game> games)
 
 void LibraryView::OnResume()
 {
+    // Déconnexion depuis les réglages : retour à l'écran de connexion, après le retour du focus.
+    if (client_ && !loading_ && !HasStoredAccount())
+    {
+        if (UiLanguage() != language_)
+            RefreshHeaderLanguage();
+        auto alive = alive_;
+        brls::sync([this, alive]() {
+            if (*alive)
+                ShowSignedOut();
+        });
+        return;
+    }
     // Langue changée dans les réglages : textes de l'écran, puis catalogue dans cette langue.
     if (UiLanguage() != language_)
     {

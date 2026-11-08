@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.0.2
+
+Update that takes user feedback and the user experience into account.
+
+**New features**
+- Queue position: the waiting screen now shows your position in the Luna queue, and the estimated
+  wait when Luna provides it.
+- Settings → Check for updates: compares the installed version with the latest LunaNX release
+  published on GitHub.
+
+**Fixes**
+- Sign out of Amazon now returns to the sign-in screen and forgets the session still in memory.
+  The games of the signed-out account can no longer be launched.
+- Sign out now deletes all the account data from the SD card, including temporary copies of the
+  session and the recently played games. A session renewal in progress can no longer restore the
+  account just after signing out.
+- Sign out no longer freezes the interface while the console is removed from the Amazon account,
+  and the local data is deleted even without a network connection.
+
 ## v2.0.1
 
 **New features**

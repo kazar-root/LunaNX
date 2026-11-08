@@ -15,6 +15,8 @@
 #include <switch.h>
 #endif
 
+#include <sys/stat.h>
+
 #include <cctype>
 #include <cstdio>
 #include <memory>
@@ -448,9 +450,37 @@ bool AmazonAuth::Save(const DeviceRegistration& registration)
     return ok;
 }
 
+bool AmazonAuth::UpdateStored(const DeviceRegistration& registration)
+{
+    DeviceRegistration stored;
+    if (!Load(stored) || stored.device_serial != registration.device_serial)
+        return false;
+    return Save(registration);
+}
+
 void AmazonAuth::Erase()
 {
-    std::remove(StoragePath().c_str());
+    // WriteFileAtomically peut laisser une copie .tmp ou .bak contenant les mêmes jetons.
+    for (const char* suffix : {"", ".tmp", ".bak"})
+        std::remove((StoragePath() + suffix).c_str());
+}
+
+bool AmazonAuth::EraseAccountData()
+{
+    bool all_removed = true;
+    for (const char* name : {"amazon_device.json", "cookies.txt", "cookies.json", "recent_games.json"})
+    {
+        for (const char* suffix : {"", ".tmp", ".bak"})
+        {
+            const std::string path = AppHomePath() + "/" + name + suffix;
+            std::remove(path.c_str());
+            struct stat info;
+            if (stat(path.c_str(), &info) == 0)
+                all_removed = false;
+        }
+    }
+    LogRuntimeEvent("auth", "local_account_data_erased", all_removed ? "complete" : "partial");
+    return all_removed;
 }
 
 } // namespace lunanx::luna

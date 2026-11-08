@@ -90,6 +90,9 @@ struct SessionJob
     SessionJobStatus status = SessionJobStatus::Pending;
     std::string raw_status;
     int retry_after_ms = 1500;
+    // File d'attente Luna : valeurs négatives tant que le serveur ne les a pas données.
+    int position_in_line = -1;
+    int expected_wait_seconds = -1;
     std::string session_id;
     std::string connection_id;
     std::string region;

@@ -73,7 +73,12 @@ class AmazonAuth
 
     static bool Load(DeviceRegistration& registration);
     static bool Save(const DeviceRegistration& registration);
+    // Enregistre des cookies renouvelés, sauf si l'utilisateur s'est déconnecté entre-temps.
+    static bool UpdateStored(const DeviceRegistration& registration);
     static void Erase();
+    // Supprime de la carte SD toutes les données du compte (session, cookies, jeux récents).
+    // Renvoie false si un fichier n'a pas pu être supprimé.
+    static bool EraseAccountData();
     static std::string StoragePath();
 };
 

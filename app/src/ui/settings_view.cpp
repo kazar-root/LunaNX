@@ -1,11 +1,10 @@
 #include "settings_view.hpp"
 
-#include "core/app_paths.hpp"
 #include "core/app_version.hpp"
 #include "core/i18n.hpp"
+#include "core/runtime_journal.hpp"
+#include "core/update_check.hpp"
 #include "luna/amazon_auth.hpp"
-
-#include <cstdio>
 
 #include <algorithm>
 
@@ -122,16 +121,26 @@ SettingsView::SettingsView()
                                      : Tr("Non connecté"));
     logout->registerClickAction([logout](brls::View*) {
         luna::DeviceRegistration current;
-        if (luna::AmazonAuth::Load(current))
+        const bool registered = luna::AmazonAuth::Load(current);
+        // Les données locales partent d'abord : elles sont effacées même sans réseau.
+        const bool erased = luna::AmazonAuth::EraseAccountData();
+        if (registered)
         {
-            // Retire la console des appareils du compte, puis efface la session locale.
-            try { luna::AmazonAuth::Deregister(current); } catch (...) {}
+            // Puis la console est retirée des appareils du compte, sans figer l'interface.
+            brls::async([current]() {
+                try
+                {
+                    luna::AmazonAuth::Deregister(current);
+                }
+                catch (const std::exception& ex)
+                {
+                    LogRuntimeEvent("auth", "deregister_failed", ex.what());
+                }
+            });
         }
-        luna::AmazonAuth::Erase();
-        std::remove((AppHomePath() + "/cookies.txt").c_str());
-        std::remove((AppHomePath() + "/cookies.json").c_str());
         logout->setDetailText(Tr("Déconnecté"));
-        brls::Application::notify(Tr("Session Amazon supprimée de la console"));
+        brls::Application::notify(erased ? Tr("Session Amazon supprimée de la console")
+                                         : Tr("Certaines données du compte n'ont pas pu être supprimées de la carte SD."));
         return true;
     });
     list->addView(logout);
@@ -191,6 +200,45 @@ SettingsView::SettingsView()
     });
     list->addView(debug);
 
+    // Compare la version installée à la dernière publiée sur GitHub.
+    auto* updates = new brls::DetailCell();
+    updates->setText(Tr("Vérifier les mises à jour"));
+    updates->setDetailText(TrFormat("Version installée : {}", {kAppVersion}));
+    updates->registerClickAction([this, updates](brls::View*) {
+        if (checking_update_)
+            return true;
+        checking_update_ = true;
+        updates->setDetailText(Tr("Vérification…"));
+        auto alive = alive_;
+        brls::async([this, alive, updates]() {
+            const UpdateCheckResult result = CheckForUpdate();
+            brls::sync([this, alive, updates, result]() {
+                if (!*alive)
+                    return;
+                checking_update_ = false;
+                if (!result.ok)
+                {
+                    updates->setDetailText(Tr("Vérification impossible"));
+                    brls::Application::notify(
+                        Tr("Impossible de contacter GitHub. Vérifie la connexion Internet puis réessaie."));
+                }
+                else if (result.update_available)
+                {
+                    updates->setDetailText(TrFormat("Version {} disponible", {result.latest_version}));
+                    brls::Application::notify(TrFormat(
+                        "Nouvelle version {} disponible sur github.com/kazar-root/LunaNX/releases",
+                        {result.latest_version}));
+                }
+                else
+                {
+                    updates->setDetailText(TrFormat("À jour (version {})", {kAppVersion}));
+                }
+            });
+        });
+        return true;
+    });
+    list->addView(updates);
+
     auto* about = new brls::Label();
     about->setText(TrFormat("LunaNX {} · par KazaR-RooT · licence GPL-3.0\nClient non officiel, sans lien "
                             "avec Amazon ni Nintendo.\nQuitter une partie : ZL + ZR + Moins.",
@@ -204,6 +252,11 @@ SettingsView::SettingsView()
         brls::Application::popActivity();
         return true;
     });
+}
+
+SettingsView::~SettingsView()
+{
+    *alive_ = false;
 }
 
 void SettingsView::Save()

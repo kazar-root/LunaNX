@@ -2,10 +2,10 @@
   <img src="resources/img/lunanx_logo.png" width="220" alt="LunaNX logo">
 </p>
 
-<h1 align="center">LunaNX v2.0.1 — Amazon Luna on Nintendo Switch</h1>
+<h1 align="center">LunaNX v2.0.2 — Amazon Luna on Nintendo Switch</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.1-7c5cff" alt="Version 2.0.1">
+  <img src="https://img.shields.io/badge/version-2.0.2-7c5cff" alt="Version 2.0.2">
   <img src="https://img.shields.io/badge/platform-Nintendo%20Switch%20(homebrew)-e60012" alt="Nintendo Switch homebrew">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License GPL-3.0">
 </p>
@@ -19,6 +19,17 @@ library, and streams the game to the console with your controller as the input d
 > sponsored by Amazon or Nintendo. Amazon Luna and Nintendo Switch are trademarks of their
 > respective owners. You need your own Amazon account with access to Luna; the games available
 > depend on your subscription and your country.
+
+## What's new in v2.0.2
+
+**This update takes user feedback and the user experience into account.**
+
+- **Queue position**: when Luna puts you in a queue, the waiting screen shows your position, and
+  the estimated wait when Luna provides it.
+- **Check for updates**: a new button in Settings tells you whether you have the latest LunaNX
+  version published on GitHub.
+- **Sign out now really removes your Amazon account from the console**: you return to the sign-in
+  screen, and your session, cookies and recently played games are deleted from the SD card.
 
 ## What's new in v2.0.1
 

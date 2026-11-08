@@ -185,6 +185,18 @@ bool LunaStreamSession::sleep_unless_stopped(std::chrono::milliseconds duration)
     return !stop_cv_.wait_for(lock, duration, [this] { return stop_requested_.load(); });
 }
 
+// Texte de l'écran d'attente : position et durée estimée, quand Luna les communique.
+static std::string QueueStatusText(const luna::SessionJob& job)
+{
+    std::string text = job.position_in_line > 0
+        ? TrFormat("Position dans la file : {}", {std::to_string(job.position_in_line)})
+        : Tr("En file d'attente…");
+    if (job.expected_wait_seconds > 0)
+        text += "\n" + TrFormat("Attente estimée : environ {} min",
+                                {std::to_string((job.expected_wait_seconds + 59) / 60)});
+    return text;
+}
+
 void LunaStreamSession::set_status(const std::string& status)
 {
     std::lock_guard<std::mutex> lock(status_mutex_);
@@ -254,11 +266,12 @@ void LunaStreamSession::signaling_loop()
         while (!stop_requested_.load())
         {
             job = client_->GetGameSessionJob(job_id);
-            AppendStreamLog("JOB status=" + job.raw_status);
+            AppendStreamLog("JOB status=" + job.raw_status + " position=" + std::to_string(job.position_in_line) +
+                            " wait_s=" + std::to_string(job.expected_wait_seconds));
             if (job.status != luna::SessionJobStatus::Pending)
                 break;
             set_status(job.raw_status.find("QUEUE") != std::string::npos
-                ? Tr("En file d'attente…")
+                ? QueueStatusText(job)
                 : Tr("Démarrage de la machine distante…"));
             if (std::chrono::steady_clock::now() > deadline)
                 throw luna::LunaError(Tr("Le serveur Luna ne répond pas (délai dépassé)"));

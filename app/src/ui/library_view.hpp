@@ -28,6 +28,8 @@ class LibraryView : public brls::Box
     void Reload();
     void ShowMessage(const std::string& title, const std::string& body);
     void ShowSignIn(const std::string& reason);
+    // Compte supprimé depuis les réglages : oublie la session et le catalogue affichés.
+    void ShowSignedOut();
     void ShowStorePicker();
     void ChooseStore(const std::string& market_code);
     void RefreshHeaderLanguage();

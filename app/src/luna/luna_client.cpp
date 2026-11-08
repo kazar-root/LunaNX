@@ -787,7 +787,7 @@ void LunaClient::SignIn(const Status& status)
         if (status)
             status(Tr("Renouvellement de la session Amazon…"));
         registration_->cookies = AmazonAuth::RefreshCookies(*registration_);
-        AmazonAuth::Save(*registration_);
+        AmazonAuth::UpdateStored(*registration_);
         cookies_.SetCookies(registration_->cookies);
         account_.access_token = FetchAccessToken();
     }
@@ -1319,6 +1319,12 @@ SessionJob LunaClient::GetGameSessionJob(const std::string& job_id) const
     json_t* retry = json_object_get(root, "retryAfterMs");
     if (json_is_integer(retry))
         job.retry_after_ms = static_cast<int>(json_integer_value(retry));
+    json_t* position = json_object_get(root, "positionInLine");
+    if (json_is_number(position))
+        job.position_in_line = static_cast<int>(json_number_value(position));
+    json_t* expected_wait = json_object_get(root, "expectedWaitTimeSeconds");
+    if (json_is_number(expected_wait))
+        job.expected_wait_seconds = static_cast<int>(json_number_value(expected_wait));
 
     json_t* session = json_object_get(root, "gameSession");
     if (json_is_object(session))
