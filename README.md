@@ -35,17 +35,7 @@ library, and streams the game to the console with your controller as the input d
 
 **Six new countries: LunaNX now covers all 14 Luna countries.** This update adds the new
 countries requested by several users. In addition to France, Germany, United Kingdom, Spain,
-Italy, United States and Canada, you can now choose:
-
-| Country | Language applied |
-| --- | --- | --- |
-| Poland | Polski |
-| Netherlands | Nederlands |
-| Sweden | Svenska |
-| Belgium | Nederlands (Français available) |
-| Austria | Deutsch |
-| Portugal | Português |
-| Luxembourg | Français |
+Italy, United States and Canada, you can now choose: Poland, Netherlands, Sweden, Belgium, Nederlands, Austria, Portugal & Luxembourg.
 
 **Three new interface languages**: Polski, Nederlands and Svenska (11 languages in total).
 
