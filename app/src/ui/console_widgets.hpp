@@ -1,3 +1,6 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=65286e3f72fc89daeeee
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+
 #pragma once
 
 #include "theme.hpp"
@@ -41,7 +44,9 @@ class ConsoleButton final : public brls::Box
 {
   public:
     ConsoleButton(Icon icon, std::string title, std::function<void()> action, bool primary = false);
+    ~ConsoleButton() override;
     void SetTitle(const std::string& title);
+    void SetImageUrl(const std::string& url);
     void SetIcon(Icon icon) { icon_ = icon; }
     void SetActive(bool active) { active_ = active; }
     void SetBadge(bool badge) { badge_ = badge; }
@@ -59,6 +64,8 @@ class ConsoleButton final : public brls::Box
     bool has_tint_ = false;
     NVGcolor tint_ {};
     brls::Animatable focus_ = 0;
+    std::string image_url_;
+    std::unique_ptr<brls::Image> image_;
 };
 
 // Fond de l'écran : visuel du jeu sélectionné en fondu enchaîné, assombri pour le texte.

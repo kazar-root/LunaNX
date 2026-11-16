@@ -1,3 +1,6 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=d2eba19fa59607e6e5ef
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+
 #if defined(__SWITCH__) && defined(BOREALIS_USE_DEKO3D)
 
 #pragma once

@@ -42,14 +42,37 @@ add_subdirectory(extern/libpeer)
 target_include_directories(borealis PUBLIC ${DEVKITPRO}/portlibs/switch/include)
 
 file(GLOB_RECURSE APP_SOURCES CONFIGURE_DEPENDS app/src/*.cpp app/src/*.c)
+file(GLOB_RECURSE PROVENANCE_SOURCES CONFIGURE_DEPENDS
+    app/src/*.cpp app/src/*.c app/src/*.hpp app/src/*.h app/src/*.glsl)
+file(GLOB PROVENANCE_BRANDING CONFIGURE_DEPENDS
+    resources/branding/* resources/img/lunanx_logo.png resources/img/lunanx_header.png
+    resources/img/lunanx_cover.png resources/icon/icon.jpg)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set(PROVENANCE_OUT "${CMAKE_BINARY_DIR}/provenance")
+set(PROVENANCE_MANIFEST "${PROVENANCE_OUT}/source-manifest.json")
+set(PROVENANCE_HEADER "${PROVENANCE_OUT}/lunanx_build_provenance.hpp")
+set(PROVENANCE_SYMBOLS "${PROVENANCE_OUT}/origin_symbols.rsp")
+add_custom_command(
+    OUTPUT "${PROVENANCE_MANIFEST}" "${PROVENANCE_HEADER}" "${PROVENANCE_SYMBOLS}"
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/scripts/provenance.py" generate
+        --root "${CMAKE_CURRENT_SOURCE_DIR}" --manifest "${PROVENANCE_MANIFEST}"
+        --header "${PROVENANCE_HEADER}" --symbols "${PROVENANCE_SYMBOLS}"
+    DEPENDS ${PROVENANCE_SOURCES} ${PROVENANCE_BRANDING} scripts/provenance.py provenance/project.json
+        CMakeLists.txt build.sh NOTICE LICENSE THIRD_PARTY_NOTICES.md
+    VERBATIM)
+add_custom_target(LunaNX_provenance DEPENDS "${PROVENANCE_MANIFEST}" "${PROVENANCE_HEADER}" "${PROVENANCE_SYMBOLS}")
 
 add_executable(${PROJECT_NAME}
     ${APP_SOURCES}
     extern/borealis/library/lib/platforms/switch/switch_wrapper.c
     extern/qrcodegen/qrcodegen.c)
+add_dependencies(${PROJECT_NAME} LunaNX_provenance)
+target_link_options(${PROJECT_NAME} PRIVATE "LINKER:@${PROVENANCE_SYMBOLS}")
+set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY LINK_DEPENDS "${PROVENANCE_SYMBOLS}")
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     app/src
+    "${PROVENANCE_OUT}"
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/qrcodegen
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/borealis/library/lib/extern/glfw/deps
     ${CMAKE_CURRENT_SOURCE_DIR}/extern/ffmpeg/include
@@ -98,7 +121,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     z bz2)
 
 set(PROJECT_AUTHOR "KazaR-RooT")
-set(PROJECT_VERSION_STRING "2.1.0")
+set(PROJECT_VERSION_STRING "3.0")
 set(PROJECT_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon/icon.jpg)
 set(PROJECT_ROMFS_DIR ${CMAKE_BINARY_DIR}/romfs)
 
@@ -108,6 +131,9 @@ add_custom_target(${PROJECT_NAME}.nro
         ${PROJECT_NAME}.nacp
     COMMAND ${CMAKE_COMMAND} -E remove_directory ${PROJECT_ROMFS_DIR}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_ROMFS_DIR}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_ROMFS_DIR}/provenance
+    COMMAND ${CMAKE_COMMAND} -E copy "${PROVENANCE_MANIFEST}" ${PROJECT_ROMFS_DIR}/provenance/source-manifest.json
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/NOTICE ${PROJECT_ROMFS_DIR}/provenance/NOTICE
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources/i18n ${PROJECT_ROMFS_DIR}/i18n
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon ${PROJECT_ROMFS_DIR}/icon
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources/img ${PROJECT_ROMFS_DIR}/img
@@ -117,4 +143,7 @@ add_custom_target(${PROJECT_NAME}.nro
     COMMAND ${NX_ELF2NRO_EXE} ${PROJECT_NAME}.elf ${PROJECT_NAME}.nro
         --icon=${PROJECT_ICON}
         --nacp=${PROJECT_NAME}.nacp
-        --romfsdir=${PROJECT_ROMFS_DIR})
+        --romfsdir=${PROJECT_ROMFS_DIR}
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/scripts/provenance.py" record-release
+        "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.nro" --root "${CMAKE_CURRENT_SOURCE_DIR}"
+        --manifest "${PROVENANCE_MANIFEST}" --release "${PROVENANCE_OUT}/release.json")

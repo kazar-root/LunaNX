@@ -1,9 +1,13 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=a719949e943ae8267c2d
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+
 #pragma once
 
 #include "cookie_jar.hpp"
 
 #include <string>
 #include <vector>
+#include <functional>
 
 namespace lunanx::luna
 {
@@ -57,9 +61,23 @@ struct DeviceRegistration
     std::vector<Cookie> cookies;
 };
 
+// Seules les informations destinées à l'écran : le code privé reste dans AmazonAuth.
+struct DeviceCodeChallenge
+{
+    std::string user_code;
+    std::string verification_url;
+    int expires_in_seconds = 0;
+};
+
 class AmazonAuth
 {
   public:
+    // Connexion par code Amazon : validation depuis n'importe quel navigateur, puis
+    // enregistrement automatique. Ne sauvegarde rien : l'appelant vérifie l'annulation.
+    static DeviceRegistration SignInWithCode(
+        const std::string& market_code,
+        const std::function<void(const DeviceCodeChallenge&)>& on_challenge,
+        const std::function<bool()>& is_cancelled);
     // Prépare l'URL de la vraie page de connexion Amazon (OAuth 2 + PKCE).
     static PendingSignIn BeginSignIn(const std::string& market_code);
     // Extrait le code d'autorisation de l'URL finale (« …/ap/maplanding?…authorization_code=… »).

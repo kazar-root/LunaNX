@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=c9de7b7d617d2ee50a64
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(uc9de7b7d617d2ee50a64, "c9de7b7d617d2ee50a64")
+
 #include "amazon_sign_in.hpp"
 
 #include "core/i18n.hpp"

@@ -1,0 +1,17 @@
+{
+  "schema": "lunanx-release-reference/v1",
+  "identity": {
+    "schema": "lunanx-origin/v1",
+    "project": "LunaNX",
+    "creator": "KazaR-RooT",
+    "project_id": "urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed",
+    "repository": "https://github.com/kazar-root/LunaNX",
+    "license": "GPL-3.0",
+    "notice": "Project origin attribution. Third-party code retains its own authors and licenses; see THIRD_PARTY_NOTICES.md."
+  },
+  "version": "3.0",
+  "nro_sha256": "b9ee54a835c4fb2b1624ade7914f8ac9f8bec1e0220ad0f8b4c5f65dc3d9a2fe",
+  "source_tree_sha256": "49f5eba5d5b01b353977f31e64e89f0db29dbcb358646ffcb9d09114650ed50d",
+  "manifest_sha256": "27e651504f56625ceae0888b36baf09e74f0194b93fe4f0658e5af2aa7fe7031",
+  "digitally_signed": false
+}

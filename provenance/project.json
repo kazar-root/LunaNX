@@ -1,0 +1,9 @@
+{
+  "schema": "lunanx-origin/v1",
+  "project": "LunaNX",
+  "creator": "KazaR-RooT",
+  "project_id": "urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed",
+  "repository": "https://github.com/kazar-root/LunaNX",
+  "license": "GPL-3.0",
+  "notice": "Project origin attribution. Third-party code retains its own authors and licenses; see THIRD_PARTY_NOTICES.md."
+}

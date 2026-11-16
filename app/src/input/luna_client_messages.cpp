@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=c8ddde991effd4d37d27
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(uc8ddde991effd4d37d27, "c8ddde991effd4d37d27")
+
 #include "luna_client_messages.hpp"
 
 #include "luna_proto.hpp"

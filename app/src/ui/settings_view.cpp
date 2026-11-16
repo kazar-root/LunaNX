@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=e71047723d993ab28a3e
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(ue71047723d993ab28a3e, "e71047723d993ab28a3e")
+
 #include "settings_view.hpp"
 
 #include "core/app_version.hpp"
@@ -30,17 +35,19 @@ const std::vector<std::string> kLibraryCodes = {"Covers", "List"};
 
 } // namespace
 
-SettingsView::SettingsView()
+SettingsView::SettingsView(std::function<void()> on_signed_out)
     : brls::Box(brls::Axis::COLUMN)
     , settings_(LoadStreamSettings())
 {
     setGrow(1.0f);
     setBackgroundColor(nvgRGB(12, 11, 18));
-    setPadding(26, 60, 20, 60);
+    // Étendre la zone de défilement à droite, avec une gouttière réservée à l'indicateur.
+    setPadding(26, 24, 20, 60);
 
     auto* header = new brls::Box(brls::Axis::ROW);
     header->setAlignItems(brls::AlignItems::CENTER);
     header->setMarginBottom(16);
+    header->setMarginRight(36);
     auto* title = new brls::Label();
     title->setText(Tr("Réglages"));
     title->setFontSize(30);
@@ -61,6 +68,8 @@ SettingsView::SettingsView()
     auto* scroller = new brls::ScrollingFrame();
     scroller->setGrow(1.0f);
     auto* list = new brls::Box(brls::Axis::COLUMN);
+    // Le contenu reste à gauche de la barre ; ScrollingFrame interdit son propre padding.
+    list->setPaddingRight(56);
     scroller->setContentView(list);
     addView(scroller);
 
@@ -92,7 +101,7 @@ SettingsView::SettingsView()
     std::vector<std::string> market_codes;
     for (const auto& market : luna::AmazonMarkets())
     {
-        market_labels.push_back(Tr(market.label));
+        market_labels.push_back(market.native_name);
         market_codes.push_back(market.code);
     }
     auto* market = new brls::SelectorCell();
@@ -119,7 +128,7 @@ SettingsView::SettingsView()
     logout->setDetailText(registered ? (registration.customer_name.empty() ? Tr("Connecté")
                                                                            : registration.customer_name)
                                      : Tr("Non connecté"));
-    logout->registerClickAction([logout](brls::View*) {
+    logout->registerClickAction([logout, on_signed_out = std::move(on_signed_out)](brls::View*) {
         luna::DeviceRegistration current;
         const bool registered = luna::AmazonAuth::Load(current);
         // Les données locales partent d'abord : elles sont effacées même sans réseau.
@@ -141,6 +150,13 @@ SettingsView::SettingsView()
         logout->setDetailText(Tr("Déconnecté"));
         brls::Application::notify(erased ? Tr("Session Amazon supprimée de la console")
                                          : Tr("Certaines données du compte n'ont pas pu être supprimées de la carte SD."));
+        // Le rappel oublie le client en mémoire et annule toute connexion en cours,
+        // y compris si une carte SD en lecture seule n'a pas pu être nettoyée.
+        brls::sync([on_signed_out] {
+            brls::Application::popActivity();
+            if (on_signed_out)
+                brls::sync(on_signed_out);
+        });
         return true;
     });
     list->addView(logout);
@@ -238,6 +254,18 @@ SettingsView::SettingsView()
         return true;
     });
     list->addView(updates);
+
+    auto* origin = new brls::DetailCell();
+    origin->setText(Tr("Création et origine"));
+    origin->setDetailText("KazaR-RooT");
+    origin->registerClickAction([](brls::View*) {
+        auto* dialog = new brls::Dialog("KazaR-RooT");
+        dialog->addButton(Tr("Fermer"), [] {});
+        dialog->setCancelable(true);
+        dialog->open();
+        return true;
+    });
+    list->addView(origin);
 
     auto* about = new brls::Label();
     about->setText(TrFormat("LunaNX {} · par KazaR-RooT · licence GPL-3.0\nClient non officiel, sans lien "

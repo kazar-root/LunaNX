@@ -1,0 +1,18 @@
+LunaNX
+Project creator and original maintainer: KazaR-RooT
+Copyright (C) 2026 KazaR-RooT, for original LunaNX contributions.
+Original project: https://github.com/kazar-root/LunaNX
+Stable project ID: urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed
+
+LunaNX is distributed under the GPL-3.0 license in LICENSE. This notice adds no
+restriction on the rights granted by that license and does not prevent forks,
+modification or redistribution. Changes by other contributors remain their work.
+
+Project origin markers identify the LunaNX source tree and the modules bundled
+in a build. They do not assert that KazaR-RooT authored third-party components.
+Preserve the original notices, authors and licenses of those components;
+see THIRD_PARTY_NOTICES.md and licenses/.
+
+The provenance manifests are reproducible attribution and comparison metadata.
+They are not digital signatures, a trusted timestamp or independent proof of
+authorship. See docs/PROVENANCE.md for local inspection and comparison commands.

@@ -1,9 +1,15 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=0d5c0c4c651c5963ec9b
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u0d5c0c4c651c5963ec9b, "0d5c0c4c651c5963ec9b")
+
 #include "game_carousel.hpp"
 
 #include "core/i18n.hpp"
 #include "cover_image_cache.hpp"
 
 #include <borealis/core/touch/tap_gesture.hpp>
+#include <borealis/core/touch/pan_gesture.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -69,6 +75,31 @@ GameCarouselView::GameCarouselView(std::function<void(const std::string&)> selec
         return true;
     });
     UpdateHint();
+    // Le glissement prend la main sur le tap dès qu'un mouvement horizontal est reconnu.
+    addGestureRecognizer(new brls::PanGestureRecognizer([this](brls::PanGestureStatus status, brls::Sound*) {
+        if (SlotCount() == 0)
+            return;
+        if (status.state == brls::GestureState::START)
+        {
+            brls::Application::giveFocus(this);
+            drag_origin_ = position_.getValue();
+            position_.stop();
+        }
+        if (status.state != brls::GestureState::STAY && status.state != brls::GestureState::END)
+            return;
+        const float offset = has_previous_page_ ? 1.0f : 0.0f;
+        const float position = std::clamp(drag_origin_ - (status.position.x - status.startPosition.x) / kStep,
+                                          -offset, static_cast<float>(SlotCount() - 1) - offset);
+        Select(static_cast<std::size_t>(std::llround(position + offset)), false);
+        position_ = position;
+        if (status.state == brls::GestureState::END)
+        {
+            position_.addStep(static_cast<float>(selected_) - offset, 180, brls::EasingFunction::cubicOut);
+            position_.start();
+            if (IsNextPageSelected() || IsPreviousPageSelected())
+                ActivateSelected();
+        }
+    }, brls::PanAxis::HORIZONTAL));
     addGestureRecognizer(new brls::TapGestureRecognizer([this](brls::TapGestureStatus status, brls::Sound*) {
         if (status.state != brls::GestureState::END || SlotCount() == 0)
             return;
@@ -76,11 +107,18 @@ GameCarouselView::GameCarouselView(std::function<void(const std::string&)> selec
         const long long target = std::llround(position_.getValue() + relative) + (has_previous_page_ ? 1 : 0);
         if (target < 0 || target >= static_cast<long long>(SlotCount()))
             return;
+        const float center = getFrame().getMinX() + kAnchor +
+                             (target - (has_previous_page_ ? 1 : 0) - position_.getValue()) * kStep;
+        const float scale = static_cast<std::size_t>(target) == selected_ ? 1.07f : 1.0f;
+        const float top = getFrame().getMinY() + (getHeight() - kHeight * scale) / 2;
+        if (std::abs(status.position.x - center) > kWidth * scale / 2 ||
+            status.position.y < top || status.position.y > top + kHeight * scale)
+            return;
         brls::Application::giveFocus(this);
-        if (static_cast<std::size_t>(target) == selected_)
+        Select(static_cast<std::size_t>(target), true);
+        if (IsNextPageSelected() || IsPreviousPageSelected())
             ActivateSelected();
-        else
-            Select(static_cast<std::size_t>(target), true);
+        // Une jaquette ne lance jamais de partie au toucher : utiliser le bouton JOUER.
     }));
 }
 
@@ -140,6 +178,19 @@ void GameCarouselView::SetGames(std::vector<CarouselItem> games, const std::stri
     items_ = std::move(games);
     has_next_page_ = has_next_page && !items_.empty() && static_cast<bool>(next_page_);
     has_previous_page_ = has_previous_page && !items_.empty() && static_cast<bool>(previous_page_);
+    if (items_.empty())
+    {
+        // État vide complet : aucune animation, texture ou sélection de l'ancienne page.
+        position_ = 0;
+        selection_mix_ = 1;
+        selected_ = previous_selected_ = 0;
+        for (auto& slot : slots_)
+            ui::RetireImage(std::move(slot.image));
+        slots_.clear();
+        setFocusable(false);
+        UpdateHint();
+        return;
+    }
     selected_ = has_previous_page_ ? 1 : 0;
     for (std::size_t i = 0; i < items_.size(); ++i)
         if (!selected_id.empty() && items_[i].id == selected_id)
@@ -230,6 +281,8 @@ void GameCarouselView::ReconcileTextures()
 void GameCarouselView::draw(NVGcontext* vg, float x, float y, float width, float height, brls::Style,
                             brls::FrameContext*)
 {
+    if (items_.empty())
+        return;
     nvgSave(vg);
     nvgGlobalAlpha(vg, getAlpha());
     nvgIntersectScissor(vg, x - 40, y, width + 80, height);
@@ -295,7 +348,7 @@ void GameCarouselView::draw(NVGcontext* vg, float x, float y, float width, float
             const auto found = std::find_if(slots_.begin(), slots_.end(),
                                             [&](const Slot& slot) { return slot.id == item.id; });
             const bool drawn = found != slots_.end() && found->image &&
-                               ui::DrawImage(vg, *found->image, left, top, w, h, true, 1, kRadius - 1);
+                               ui::DrawImage(vg, *found->image, left, top, w, h, false, 1, kRadius - 1);
             if (!drawn)
             {
                 // Jaquette en cours de chargement : titre centré sur la carte.

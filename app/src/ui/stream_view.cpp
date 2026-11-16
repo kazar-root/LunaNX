@@ -1,11 +1,23 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=344b356fdce442f337f5
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u344b356fdce442f337f5, "344b356fdce442f337f5")
+
 #include "stream_view.hpp"
 
 #include "core/i18n.hpp"
 #include "input/controller_layout.hpp"
+#include "ui/console_widgets.hpp"
 #include "stream/ffmpeg/AVFrameHolder.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <ctime>
+
+#ifdef __SWITCH__
+#include <switch.h>
+#endif
 
 namespace lunanx
 {
@@ -69,6 +81,8 @@ StreamView::StreamView(std::shared_ptr<const luna::LunaClient> client, luna::Gam
     setGrow(1.0f);
     setFocusable(true);
     setHideHighlight(true);
+    launch_logo_ = std::make_unique<brls::Image>();
+    launch_logo_->setImageFromRes("img/lunanx_logo.png");
     session_ = std::make_unique<LunaStreamSession>(std::move(client), std::move(game));
     controller_layout_ = session_->settings().controller_layout;
     show_debug_ = session_->settings().debug_diagnostics;
@@ -80,6 +94,7 @@ StreamView::~StreamView()
     if (session_)
         session_->stop();
     AVFrameHolder::instance().cleanup();
+    ui::RetireImage(std::move(launch_logo_));
 }
 
 void StreamView::Exit()
@@ -99,7 +114,7 @@ void StreamView::HandleInput(const brls::ControllerState& state)
 
     // Quitter : ZL + ZR + Moins à tout moment ; B suffit tant que le jeu n'a pas démarré.
     const bool exit_combo = state.buttons[brls::BUTTON_LT] && state.buttons[brls::BUTTON_RT] &&
-                            state.buttons[brls::BUTTON_BACK];
+                            state.buttons[brls::BUTTON_BACK] && !state.buttons[brls::BUTTON_START];
     const bool not_playing = phase != LunaStreamSession::Phase::Streaming &&
                              phase != LunaStreamSession::Phase::Connecting;
     if (exit_combo || (not_playing && state.buttons[brls::BUTTON_B]))
@@ -119,27 +134,18 @@ void StreamView::HandleInput(const brls::ControllerState& state)
     if (phase != LunaStreamSession::Phase::Streaming && phase != LunaStreamSession::Phase::Connecting)
         return;
 
-    // Plus court = Start (impulsion garantie), Plus long (> 0,5 s) = bouton Xbox.
-    const bool plus_down = state.buttons[brls::BUTTON_START];
-    if (plus_down && !plus_was_down_)
-    {
-        plus_pressed_at_ = now;
-        plus_long_press_ = false;
-    }
-    if (plus_down && !plus_long_press_ && now - plus_pressed_at_ >= std::chrono::milliseconds(500))
-        plus_long_press_ = true;
-    if (!plus_down && plus_was_down_ && !plus_long_press_)
-        start_pulse_.Queue(now);
-    plus_was_down_ = plus_down;
+    const auto menu = menu_buttons_.Update(state.buttons[brls::BUTTON_START], state.buttons[brls::BUTTON_BACK], now);
+    if (menu.toggle_stats)
+        show_quick_stats_ = !show_quick_stats_;
 
     input::GamepadState pad;
     if (state.buttons[brls::BUTTON_UP]) pad.buttons |= input::kDpadUp;
     if (state.buttons[brls::BUTTON_DOWN]) pad.buttons |= input::kDpadDown;
     if (state.buttons[brls::BUTTON_LEFT]) pad.buttons |= input::kDpadLeft;
     if (state.buttons[brls::BUTTON_RIGHT]) pad.buttons |= input::kDpadRight;
-    if (start_pulse_.IsActive(now)) pad.buttons |= input::kStart;
-    if (plus_down && plus_long_press_) pad.buttons |= input::kGuide;
-    if (state.buttons[brls::BUTTON_BACK]) pad.buttons |= input::kBack;
+    if (menu.start) pad.buttons |= input::kStart;
+    if (menu.guide) pad.buttons |= input::kGuide;
+    if (menu.back) pad.buttons |= input::kBack;
     if (state.buttons[brls::BUTTON_LSB]) pad.buttons |= input::kLeftThumb;
     if (state.buttons[brls::BUTTON_RSB]) pad.buttons |= input::kRightThumb;
     if (state.buttons[brls::BUTTON_LB]) pad.buttons |= input::kLeftShoulder;
@@ -183,7 +189,7 @@ void StreamView::HandleInput(const brls::ControllerState& state)
         state_sent_ = true;
         last_state_ = pad;
         last_report_at_ = now;
-        if ((pad.buttons & input::kStart) && start_pulse_.OnReportDelivered(now))
+        if (menu_buttons_.OnReportDelivered(pad.buttons & input::kStart, pad.buttons & input::kBack, now))
             state_sent_ = false;
     }
     else
@@ -207,6 +213,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
 
     // Partie terminée (par exemple « Quitter le jeu » dans le jeu) : retour à la bibliothèque.
     const auto now = std::chrono::steady_clock::now();
+    UpdateQuickStats(now);
     if (session_->phase() == LunaStreamSession::Phase::Ended)
     {
         if (ended_at_ == std::chrono::steady_clock::time_point {})
@@ -230,7 +237,9 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
 
     // La vidéo est dessinée directement par deko3d, alors que NanoVG n'envoie ses dessins
     // au GPU qu'en fin d'image : tout fond opaque dessiné ici recouvrirait la vidéo.
-    if (!got_frame)
+    const auto phase = session_->phase();
+    if (!got_frame || !game_visible_ || phase == LunaStreamSession::Phase::Failed ||
+        phase == LunaStreamSession::Phase::Ended)
     {
         nvgBeginPath(vg);
         nvgRect(vg, x, y, width, height);
@@ -238,12 +247,83 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgFill(vg);
         DrawStatus(vg, x, y, width, height);
     }
-    else if (!game_visible_)
-    {
-        DrawLoadingDots(vg, x + width / 2.0f, y + height - 44);
-    }
     if (show_debug_)
         DrawDebugOverlay(vg, x, y, width);
+    if (show_quick_stats_)
+        DrawQuickStats(vg, x, y, width);
+}
+
+void StreamView::UpdateQuickStats(std::chrono::steady_clock::time_point now)
+{
+    rates_.Update(now, session_->stream_counters());
+    if (quick_stats_sampled_ && now - quick_stats_at_ < std::chrono::seconds(1))
+        return;
+    quick_stats_sampled_ = true;
+    quick_stats_at_ = now;
+    const std::time_t wall_time = std::time(nullptr);
+    std::tm local {};
+    localtime_r(&wall_time, &local);
+    char clock[8] {};
+    std::strftime(clock, sizeof(clock), "%H:%M", &local);
+    quick_clock_ = clock;
+
+    auto* platform = brls::Application::getPlatform();
+    double percentage = platform->canShowBatteryLevel() ? platform->getBatteryLevel() : -1;
+    bool charging = percentage >= 0 && platform->isBatteryCharging();
+#ifdef __SWITCH__
+    PsmBatteryChargeInfoFields info {};
+    if (R_SUCCEEDED(psmGetBatteryChargeInfoFields(&info)))
+    {
+        percentage = info.battery_charge_percentage / 1000.0;
+        charging = info.charger_type != PsmChargerType_Unconnected;
+    }
+#endif
+    const auto remaining = battery_estimate_.Update(now, percentage, charging);
+    quick_battery_ = TrFormat("Batterie : {} %", {percentage >= 0 && percentage <= 100
+        ? std::to_string(static_cast<int>(std::lround(percentage))) : "--"});
+    if (charging)
+        quick_battery_ += " · " + Tr("En charge");
+    else if (remaining)
+        quick_battery_ += " · ~" + std::to_string(*remaining / 60) + " h " + std::to_string(*remaining % 60) + " min";
+    else if (percentage >= 0)
+        quick_battery_ += " · " + Tr("Estimation en cours");
+
+    char bitrate[24] {}, fps[24] {};
+    std::snprintf(bitrate, sizeof(bitrate), "%.1f", rates_.mbps());
+    std::snprintf(fps, sizeof(fps), "%.1f", rates_.fps());
+    quick_rates_ = TrFormat("Débit : {} Mbit/s · {} FPS",
+                            {rates_.ready() ? bitrate : "--", rates_.ready() ? fps : "--"});
+}
+
+void StreamView::DrawQuickStats(NVGcontext* vg, float x, float y, float width)
+{
+    const std::string text = quick_battery_ + "   |   " + quick_clock_ + "   |   " + quick_rates_;
+    nvgSave(vg);
+    nvgFontFaceId(vg, brls::Application::getDefaultFont());
+    float font_size = 18;
+    nvgFontSize(vg, font_size);
+    const float maximum_width = std::max(1.0f, width - 76);
+    float text_width = nvgTextBounds(vg, 0, 0, text.c_str(), nullptr, nullptr);
+    if (text_width > maximum_width)
+    {
+        font_size *= maximum_width / text_width;
+        nvgFontSize(vg, font_size);
+        text_width = nvgTextBounds(vg, 0, 0, text.c_str(), nullptr, nullptr);
+    }
+    const float w = std::min(width - 40, text_width + 36);
+    const float left = x + width - w - 20;
+    const float top = y + (show_debug_ ? 44 : 20);
+    nvgBeginPath(vg);
+    nvgRoundedRect(vg, left, top, w, 44, 12);
+    nvgFillColor(vg, nvgRGBA(12, 8, 26, 225));
+    nvgFill(vg);
+    nvgStrokeWidth(vg, 1);
+    nvgStrokeColor(vg, nvgRGBA(166, 133, 255, 180));
+    nvgStroke(vg);
+    nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+    nvgFillColor(vg, nvgRGB(245, 242, 255));
+    nvgText(vg, left + 18, top + 22, text.c_str(), nullptr);
+    nvgRestore(vg);
 }
 
 void StreamView::DrawStatus(NVGcontext* vg, float x, float y, float width, float height)
@@ -254,7 +334,21 @@ void StreamView::DrawStatus(NVGcontext* vg, float x, float y, float width, float
     const bool failed = phase == LunaStreamSession::Phase::Failed;
     const bool ended = phase == LunaStreamSession::Phase::Ended;
 
-    DrawCenteredText(vg, cx, cy - 70, 34, nvgRGB(245, 246, 248), title_);
+    const float logo_size = std::min(216.0f, height * 0.30f);
+    const float logo_top = cy - logo_size - 36;
+    ui::DrawImage(vg, *launch_logo_, cx - logo_size / 2, logo_top,
+                   logo_size, logo_size, false, 1, 20);
+
+    // Le jeu et l'état restent sous le logo, y compris pour les titres longs.
+    nvgFontSize(vg, 28);
+    nvgFontFaceId(vg, brls::Application::getDefaultFont());
+    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+    nvgFillColor(vg, nvgRGB(245, 246, 248));
+    const float title_top = logo_top + logo_size + 22;
+    float title_bounds[4] {};
+    nvgTextBoxBounds(vg, x + width * 0.12f, title_top, width * 0.76f,
+                       title_.c_str(), nullptr, title_bounds);
+    nvgTextBox(vg, x + width * 0.12f, title_top, width * 0.76f, title_.c_str(), nullptr);
 
     if (!failed && !ended)
         DrawLoadingDots(vg, cx, y + height - 84);
@@ -264,7 +358,8 @@ void StreamView::DrawStatus(NVGcontext* vg, float x, float y, float width, float
     nvgFontFaceId(vg, brls::Application::getDefaultFont());
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
     nvgFillColor(vg, status_color);
-    nvgTextBox(vg, x + width * 0.15f, cy + 30, width * 0.7f, session_->status_text().c_str(), nullptr);
+    nvgTextBox(vg, x + width * 0.15f, title_bounds[3] + 18, width * 0.7f,
+                 session_->status_text().c_str(), nullptr);
 
     const std::string hint = Tr(failed || ended ? "B : retour à la bibliothèque"
                                 : phase == LunaStreamSession::Phase::Connecting ? "ZL + ZR + Moins : quitter"
@@ -291,7 +386,9 @@ void StreamView::UpdateGameVisibility(const AVFrame* frame)
         return;
     const auto now = std::chrono::steady_clock::now();
     if (first_frame_at_ == std::chrono::steady_clock::time_point {})
+    {
         first_frame_at_ = now;
+    }
     const int luma = SampleLuma(frame);
     // Au-delà de 32 (16 = noir vidéo), l'image montre du contenu. Sans pixels lisibles, ou
     // pour un jeu très sombre, l'indicateur s'efface de lui-même après un délai.

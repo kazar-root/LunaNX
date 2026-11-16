@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=86d0cb31882f7e48e9fb
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u86d0cb31882f7e48e9fb, "86d0cb31882f7e48e9fb")
+
 #include "luna_stream_session.hpp"
 
 #include "core/app_paths.hpp"
@@ -783,6 +788,7 @@ void LunaStreamSession::maybe_recover_rtp_damage()
 
 void LunaStreamSession::on_video_packet(const PeerVideoPacket& packet)
 {
+    received_media_bytes_.fetch_add(packet.size, std::memory_order_relaxed);
     PeerVideoRtpStats stats {};
     if (pc_ && peer_connection_get_video_rtp_stats(pc_, &stats) == 0)
     {
@@ -814,6 +820,7 @@ void LunaStreamSession::on_video_packet(const PeerVideoPacket& packet)
 
 void LunaStreamSession::on_audio_packet(const PeerAudioPacket& packet)
 {
+    received_media_bytes_.fetch_add(packet.size, std::memory_order_relaxed);
     const bool new_ssrc = audio_ssrc_ != packet.ssrc;
     audio_ssrc_ = packet.ssrc;
     if (!audio_)
@@ -863,6 +870,17 @@ void LunaStreamSession::draw(NVGcontext* vg, int width, int height, AVFrame* fra
     rendered_width_.store(frame->width, std::memory_order_relaxed);
     rendered_height_.store(frame->height, std::memory_order_relaxed);
     renderer_->drawLatest(vg, width, height, frame, VIDEO_FORMAT_H264, generation);
+    if (!have_presented_frame_ || generation != last_presented_generation_)
+    {
+        have_presented_frame_ = true;
+        last_presented_generation_ = generation;
+        presented_frames_.fetch_add(1, std::memory_order_relaxed);
+    }
+}
+
+StreamCounters LunaStreamSession::stream_counters() const
+{
+    return {received_media_bytes_.load(std::memory_order_relaxed), presented_frames_.load(std::memory_order_relaxed)};
 }
 
 std::string LunaStreamSession::status_text() const

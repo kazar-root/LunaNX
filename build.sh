@@ -7,7 +7,7 @@ export DEVKITA64="${DEVKITA64:-$DEVKITPRO/devkitA64}"
 export PATH="$DEVKITPRO/tools/bin:$DEVKITA64/bin:$DEVKITPRO/portlibs/switch/bin:$(python3 -m site --user-base)/bin:$PATH"
 
 cd "$(dirname "$0")"
-jobs="$(sysctl -n hw.ncpu 2>/dev/null || nproc)"
+jobs="${LUNANX_BUILD_JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || printf '4')}"
 
 cmake -B build -G Ninja
 # Les dépendances WebRTC (projets externes) doivent exister avant l'édition de liens.

@@ -1,3 +1,6 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=4a46895b4c31f1ac910e
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+
 #pragma once
 
 #include <borealis.hpp>

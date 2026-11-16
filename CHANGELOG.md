@@ -1,30 +1,26 @@
 # Changelog
 
-## v2.1.0
+## v3.0 — 2026-11-17
 
-Redesigned home screen, in the style of NxNow.
-
-**New interface**
-- Games are shown in an animated carousel: the selected cover is enlarged and highlighted, and
-  the artwork of the selected game fills the background with a cross-fade.
-- Under the carousel: title, publisher, genres, age rating and what the game is included in,
-  with a large **PLAY** button.
-- New header with round buttons (Main menu, All games, Continue, Top 10, Luna Premium, Search,
-  Account, Settings) and a status pill: time, battery, network and your Luna subscription.
-- Footer with the version and the button hints of the focused element.
-- New interface font (Nunito) and a new color palette; sign-in screens restyled to match.
-- Search: filter the games of the current section by title.
-
-**Games of your subscription**
-- LunaNX reads your Luna subscription from your account and shows the games included in it.
-  Luna Premium games are marked with a gold badge. If your account does not have Luna Premium,
-  they are grouped in the separate **Luna Premium** section, with a padlock; you can still try
-  to launch one.
-- If Luna does not report the subscription, all games are shown, as before.
-
-**Controls**
-- L / R: previous / next page. ZL / ZR: previous / next section. −: main menu. B: clear the
-  search or go back to All games. + still quits LunaNX.
+- Introduce the redesigned cover carousel, new LunaNX logos, branded game launch screen
+  and a small version label on the main library only.
+- Deliver responsive 720p/60 H.264 streaming with bounded decode queues, latest-frame
+  presentation and adaptive image tuning, alongside background artwork/catalog loading.
+- Add a single-line performance overlay: battery percentage, estimated battery time,
+  clock, measured stream bitrate and presented FPS. Toggle with + and − together.
+- Replace the multi-step sign-in screen with one Amazon code flow and automatic confirmation.
+  The country picker shows country names only; saved sessions remain supported.
+- Order navigation as Main menu, Top 10, Continue playing, All games and Search. Start on
+  Top 10, or Continue playing when playable recent history is detected.
+- Restore local launch history and current catalog links, hydrate Luna's separate history
+  collections across stores/locales, and preserve local history on remote load failures.
+- Add touch selection/swipe navigation without accidental launches, retain portrait covers
+  received after banners, preserve Amazon image recipes and fit complete cover images.
+- Show the active Wi-Fi/Ethernet connection and Luna profile avatar; return to sign-in after logout.
+- Separate the Settings scrollbar from text, keep Creator and origin limited to KazaR-RooT,
+  and retain offline provenance, release integrity and source comparison tools.
+- Validate authentication, history, artwork, input and metrics with host tests. The creator
+  confirmed the final release on console and supplied the 3.0 screenshot gallery.
 
 ## v2.0.2
 

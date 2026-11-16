@@ -1,3 +1,6 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=1db9a63ce90d357855d5
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+
 #pragma once
 
 #include <nanovg.h>

@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=03db154072b669d63597
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u03db154072b669d63597, "03db154072b669d63597")
+
 #include "AudioPipeline.hpp"
 #include "AudioLatencyPolicy.hpp"
 #include "AudioRtpUtils.hpp"

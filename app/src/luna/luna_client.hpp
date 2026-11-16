@@ -1,3 +1,6 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=74a729a71dda08a7aadc
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+
 #pragma once
 
 #include "amazon_auth.hpp"
@@ -12,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <map>
 
 typedef struct json_t json_t;
 
@@ -50,9 +54,13 @@ class LunaClient
     AccountPlan Plan() const;
     // Statut tel que Luna l'affiche (ex. « Luna Premium »), vide s'il est inconnu.
     std::string PlanLabel() const;
+    PlayerProfile Profile() const;
 
     // Rayons de la page d'accueil et des onglets de navigation.
     std::vector<Shelf> FetchShelves() const;
+    // Historique du profil actif, chargé comme le site depuis home/library et getWidget.
+    // Les boutiques, la langue et le jeton de profil sont ceux de ce client.
+    std::vector<Shelf> FetchRecentShelves() const;
     // Parcourt en direct les pages liées au catalogue (« Tout voir », genres, collections,
     // chaînes…) repérées par FetchShelves, pour trouver les jeux absents des rangées de
     // l'accueil. Les nouveaux jeux (absents de `known`, clés de InsertGameKeys) sont transmis
@@ -85,6 +93,7 @@ class LunaClient
     // Page Luna désignée soit par un contexte (pageId/pageUri), soit par le jeton de service
     // porté par l'action d'un widget (c'est ainsi que le site web navigue).
     json_t* GetPage(json_t* page_context, const std::string& service_token = {}) const;
+    void ResolveLazyCollections(json_t* page, bool strict_recent = false) const;
     void ApplyMarketDefaults();
     std::string market_locale_;
     // Liens de navigation repérés par FetchShelves, point de départ de ExploreCatalog.
@@ -93,6 +102,8 @@ class LunaClient
     // Abonnement lu par FetchShelves (protégé par catalog_links_mutex_).
     mutable std::string plan_label_;
     mutable AccountPlan plan_ = AccountPlan::Unknown;
+    mutable PlayerProfile profile_;
+    mutable std::map<std::string, std::string> recent_page_contexts_;
     json_t* ClientContext() const;
     std::vector<std::string> ProxyHeaders() const;
     std::string HostOf(const std::string& url) const;

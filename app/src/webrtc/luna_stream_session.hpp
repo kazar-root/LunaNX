@@ -1,3 +1,6 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=4a7aaa68fd82f6c67b9e
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+
 #pragma once
 
 #include "core/stream_settings.hpp"
@@ -6,6 +9,7 @@
 #include "input/switch_rumble.hpp"
 #include "luna/luna_client.hpp"
 #include "stream/IVideoRenderer.hpp"
+#include "stream/live_metrics.hpp"
 #include "stream/audio/AudioPipeline.hpp"
 #include "stream/ffmpeg/FFmpegVideoDecoder.hpp"
 
@@ -57,6 +61,7 @@ class LunaStreamSession
     Phase phase() const { return phase_.load(std::memory_order_acquire); }
     std::string status_text() const;
     std::string debug_text() const;
+    StreamCounters stream_counters() const;
     bool input_ready() const { return input_sid_ >= 0; }
     const StreamSettings& settings() const { return settings_; }
 
@@ -174,6 +179,10 @@ class LunaStreamSession
     std::atomic<int> rendered_width_ {0};
     std::atomic<int> rendered_height_ {0};
     std::atomic<uint64_t> gamepad_reports_sent_ {0};
+    std::atomic<uint64_t> received_media_bytes_ {0};
+    std::atomic<uint64_t> presented_frames_ {0};
+    uint64_t last_presented_generation_ = 0;
+    bool have_presented_frame_ = false;
 };
 
 } // namespace lunanx

@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=2d8a9aecfc8f3c8f9e7a
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u2d8a9aecfc8f3c8f9e7a, "2d8a9aecfc8f3c8f9e7a")
+
 #include "amazon_auth.hpp"
 
 #include "core/app_paths.hpp"
@@ -6,6 +11,7 @@
 #include "core/i18n.hpp"
 #include "core/runtime_journal.hpp"
 #include "luna_client.hpp"
+#include "device_code_policy.hpp"
 
 #include <jansson.h>
 #include <mbedtls/base64.h>
@@ -17,6 +23,10 @@
 
 #include <sys/stat.h>
 
+#include <algorithm>
+#include <chrono>
+#include <thread>
+#include <cmath>
 #include <cctype>
 #include <cstdio>
 #include <memory>
@@ -169,6 +179,56 @@ std::string ErrorFrom(const HttpResponse& response)
     return "HTTP " + std::to_string(response.status_code);
 }
 
+JsonPtr RegistrationBody(const std::string& serial, const std::string& domain, json_t* auth_data, bool code_pair = false)
+{
+    return JsonPtr(json_pack(
+        "{s:[s,s,s], s:{s:[], s:s}, s:{s:s, s:s, s:s, s:s, s:s, s:s, s:s, s:s, s:s}, "
+        "s:o, s:[s,s]}",
+        "requested_token_type", "bearer", code_pair ? "mac_dms" : "website_cookies",
+        code_pair ? "website_cookies" : "store_authentication_cookie",
+        "cookies", "website_cookies", "domain", domain.c_str(),
+        "registration_data",
+        "domain", "Device",
+        "app_version", code_pair ? "4.60" : kAppVersion,
+        "device_serial", serial.c_str(),
+        "device_type", kDeviceType,
+        "device_name", "%FIRST_NAME%%FIRST_NAME_POSSESSIVE_STRING%%DUPE_STRATEGY_1ST%LunaNX",
+        "os_version", code_pair ? "26.2" : kOsVersion,
+        "software_version", code_pair ? "46000856" : kSoftwareVersion,
+        "device_model", "iPhone",
+        "app_name", kAppName,
+        "auth_data", auth_data,
+        "requested_extensions", "device_info", "customer_info"), &json_decref);
+}
+
+DeviceRegistration ParseRegistration(const HttpResponse& response, const AmazonMarket& market, const std::string& serial)
+{
+    const std::string domain = ".amazon." + market.domain;
+    json_error_t error {};
+    JsonPtr root(json_loads(response.body.c_str(), 0, &error), &json_decref);
+    json_t* success = json_object_get(json_object_get(root.get(), "response"), "success");
+    json_t* tokens = json_object_get(success, "tokens");
+
+    DeviceRegistration registration;
+    registration.market_code = market.code;
+    registration.device_serial = serial;
+    registration.refresh_token = Str(json_object_get(tokens, "bearer"), "refresh_token");
+    registration.customer_name = Str(json_object_get(json_object_get(success, "extensions"), "customer_info"), "given_name");
+    if (registration.customer_name.empty())
+        registration.customer_name = Str(json_object_get(json_object_get(success, "extensions"), "customer_info"), "name");
+
+    json_t* website_cookies = json_object_get(tokens, "website_cookies");
+    registration.cookies = ParseCookies(website_cookies, domain);
+    if (registration.refresh_token.empty())
+        throw LunaError(Tr("Réponse d'enregistrement incomplète (aucun jeton)"));
+    if (registration.cookies.empty())
+        registration.cookies = AmazonAuth::RefreshCookies(registration);
+    LogRuntimeEvent("auth", "registered", "market=" + market.code +
+                    " cookies=" + std::to_string(registration.cookies.size()));
+    return registration;
+}
+
+
 } // namespace
 
 const std::vector<AmazonMarket>& AmazonMarkets()
@@ -218,6 +278,130 @@ const AmazonMarket& FindAmazonMarket(const std::string& code)
         if (market.code == code)
             return market;
     return AmazonMarkets().front();
+}
+
+DeviceRegistration AmazonAuth::SignInWithCode(
+    const std::string& market_code,
+    const std::function<void(const DeviceCodeChallenge&)>& on_challenge,
+    const std::function<bool()>& is_cancelled)
+{
+    using Clock = std::chrono::steady_clock;
+    const auto started = Clock::now();
+    const auto check_cancelled = [&] {
+        if (is_cancelled && is_cancelled())
+            throw LunaError(Tr("Connexion annulée."));
+    };
+    check_cancelled();
+    const auto& market = FindAmazonMarket(market_code);
+    unsigned char random[20];
+    RandomBytes(random, sizeof(random));
+    const std::string serial = Hex(std::string(reinterpret_cast<const char*>(random), sizeof(random)));
+    const std::string base = "https://api.amazon." + market.identity_code;
+    const std::vector<std::string> headers = {
+        "Content-Type: application/json", "Accept: application/json",
+        "x-amzn-identity-auth-domain: api.amazon." + market.identity_code};
+    const auto serialize = [](json_t* body) {
+        if (!body)
+            throw LunaError("Invalid Amazon device request");
+        char* encoded = json_dumps(body, JSON_COMPACT);
+        if (!encoded)
+            throw LunaError("Invalid Amazon device request");
+        const std::string result(encoded);
+        free(encoded);
+        return result;
+    };
+    HttpClient http;
+    JsonPtr body(json_pack("{s:{s:s,s:s,s:s},s:{s:s,s:s}}",
+        "code_data", "device_serial", serial.c_str(), "device_type", kDeviceType, "domain", "Device",
+        "code_properties", "code_duration", "600", "code_length", "5"), &json_decref);
+    const auto response = http.Request("POST", base + "/auth/create/codepair", kMobileUserAgent,
+                                       headers, serialize(body.get()), 10, 20);
+    check_cancelled();
+    if (response.status_code != 200)
+        throw LunaError(TrFormat("Enregistrement de l'appareil refusé : {}", {ErrorFrom(response)}));
+    json_error_t error {};
+    JsonPtr challenge(json_loads(response.body.c_str(), 0, &error), &json_decref);
+    const std::string public_code = Str(challenge.get(), "public_code");
+    const std::string private_code = Str(challenge.get(), "private_code");
+    const auto seconds = [&](const char* key, int maximum) {
+        json_t* value = json_object_get(challenge.get(), key);
+        double number = json_number_value(value);
+        if (json_is_string(value))
+        {
+            try { number = std::stod(json_string_value(value)); }
+            catch (...) { number = 0; }
+        }
+        if (!std::isfinite(number) || number < 1 || number > maximum)
+            throw LunaError(Tr("Réponse de connexion Amazon incomplète."));
+        return static_cast<int>(std::ceil(number));
+    };
+    if (public_code.empty() || private_code.empty())
+        throw LunaError(Tr("Réponse de connexion Amazon incomplète."));
+    const int lifetime = seconds("expires_in", 3600);
+    const int interval = seconds("polling_interval_in_seconds", 60);
+    const auto expires = started + std::chrono::seconds(lifetime);
+    if (on_challenge)
+        on_challenge({public_code, "https://www.amazon." + market.identity_code + "/code", lifetime});
+
+    body = RegistrationBody(serial, ".amazon." + market.domain, json_pack(
+        "{s:{s:s,s:s},s:s}", "code_pair", "public_code", public_code.c_str(),
+        "private_code", private_code.c_str(), "use_global_authentication", "true"), true);
+    const std::string payload = serialize(body.get());
+    int delay = interval;
+    while (Clock::now() < expires)
+    {
+        const auto next_poll = std::min(expires, Clock::now() + std::chrono::seconds(delay));
+        while (Clock::now() < next_poll)
+        {
+            check_cancelled();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        check_cancelled();
+        if (Clock::now() >= expires)
+            break;
+        HttpResponse poll;
+        try
+        {
+            poll = http.Request("POST", base + "/auth/register", kMobileUserAgent, headers, payload, 10, 20);
+        }
+        catch (const std::exception&)
+        {
+            check_cancelled();
+            delay = std::min(delay * 2, 60);
+            continue;
+        }
+        JsonPtr result(json_loads(poll.body.c_str(), 0, &error), &json_decref);
+        json_t* envelope = json_object_get(result.get(), "response");
+        json_t* failure = json_object_get(envelope, "error");
+        if (!failure)
+            failure = json_object_get(result.get(), "error");
+        const std::string code = json_is_string(failure) ? json_string_value(failure) : Str(failure, "code");
+        const auto outcome = ClassifyDeviceCodePoll(poll.status_code, code,
+                                                    json_is_object(json_object_get(envelope, "success")));
+        if (outcome == DeviceCodePollResult::Success)
+        {
+            auto registration = ParseRegistration(poll, market, serial);
+            if (is_cancelled && is_cancelled())
+            {
+                try { Deregister(registration); } catch (...) {}
+                check_cancelled();
+            }
+            return registration;
+        }
+        check_cancelled();
+        if (outcome == DeviceCodePollResult::Pending)
+        {
+            delay = interval;
+            continue;
+        }
+        if (outcome == DeviceCodePollResult::Retry)
+        {
+            delay = std::min(delay * 2, 60);
+            continue;
+        }
+        throw LunaError(TrFormat("Enregistrement de l'appareil refusé : {}", {ErrorFrom(poll)}));
+    }
+    throw LunaError(Tr("Le code de connexion a expiré. Réessaie."));
 }
 
 PendingSignIn AmazonAuth::BeginSignIn(const std::string& market_code)
@@ -279,28 +463,13 @@ DeviceRegistration AmazonAuth::Register(const PendingSignIn& pending, const std:
     const AmazonMarket& market = FindAmazonMarket(pending.market_code);
     const std::string domain = ".amazon." + market.domain;
 
-    JsonPtr body(json_pack(
-        "{s:[s,s,s], s:{s:[], s:s}, s:{s:s, s:s, s:s, s:s, s:s, s:s, s:s, s:s, s:s}, "
-        "s:{s:s, s:s, s:s, s:s, s:s}, s:[s,s]}",
-        "requested_token_type", "bearer", "website_cookies", "store_authentication_cookie",
-        "cookies", "website_cookies", "domain", domain.c_str(),
-        "registration_data",
-        "domain", "Device",
-        "app_version", kAppVersion,
-        "device_serial", pending.device_serial.c_str(),
-        "device_type", kDeviceType,
-        "device_name", "%FIRST_NAME%%FIRST_NAME_POSSESSIVE_STRING%%DUPE_STRATEGY_1ST%LunaNX",
-        "os_version", kOsVersion,
-        "software_version", kSoftwareVersion,
-        "device_model", "iPhone",
-        "app_name", kAppName,
-        "auth_data",
+    JsonPtr body = RegistrationBody(pending.device_serial, domain, json_pack(
+        "{s:s, s:s, s:s, s:s, s:s}",
         "client_id", ClientId(pending.device_serial).c_str(),
         "authorization_code", authorization_code.c_str(),
         "code_verifier", pending.code_verifier.c_str(),
         "code_algorithm", "SHA-256",
-        "client_domain", "DeviceLegacy",
-        "requested_extensions", "device_info", "customer_info"), &json_decref);
+        "client_domain", "DeviceLegacy"));
     char* text = json_dumps(body.get(), JSON_COMPACT);
     const std::string payload = text ? text : "{}";
     free(text);
@@ -314,28 +483,7 @@ DeviceRegistration AmazonAuth::Register(const PendingSignIn& pending, const std:
     if (response.status_code != 200)
         throw LunaError(TrFormat("Enregistrement de l'appareil refusé : {}", {ErrorFrom(response)}));
 
-    json_error_t error {};
-    JsonPtr root(json_loads(response.body.c_str(), 0, &error), &json_decref);
-    json_t* success = json_object_get(json_object_get(root.get(), "response"), "success");
-    json_t* tokens = json_object_get(success, "tokens");
-
-    DeviceRegistration registration;
-    registration.market_code = market.code;
-    registration.device_serial = pending.device_serial;
-    registration.refresh_token = Str(json_object_get(tokens, "bearer"), "refresh_token");
-    registration.customer_name = Str(json_object_get(json_object_get(success, "extensions"), "customer_info"), "given_name");
-    if (registration.customer_name.empty())
-        registration.customer_name = Str(json_object_get(json_object_get(success, "extensions"), "customer_info"), "name");
-
-    json_t* website_cookies = json_object_get(tokens, "website_cookies");
-    registration.cookies = ParseCookies(website_cookies, domain);
-    if (registration.refresh_token.empty())
-        throw LunaError(Tr("Réponse d'enregistrement incomplète (aucun jeton)"));
-    if (registration.cookies.empty())
-        registration.cookies = RefreshCookies(registration);
-    LogRuntimeEvent("auth", "registered", "market=" + market.code +
-                    " cookies=" + std::to_string(registration.cookies.size()));
-    return registration;
+    return ParseRegistration(response, market, pending.device_serial);
 }
 
 std::vector<Cookie> AmazonAuth::RefreshCookies(const DeviceRegistration& registration)

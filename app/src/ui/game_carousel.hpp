@@ -1,3 +1,6 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=cd2f915b7eaa003e2726
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+
 #pragma once
 
 #include "console_widgets.hpp"
@@ -76,6 +79,7 @@ class GameCarouselView final : public brls::View
     std::size_t previous_selected_ = 0;
     brls::Animatable position_ = 0;
     brls::Animatable selection_mix_ = 1;
+    float drag_origin_ = 0;
 };
 
 } // namespace lunanx

@@ -1,3 +1,6 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=0f85f0189296228fbd14
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+
 #pragma once
 
 #include "console_widgets.hpp"
@@ -12,8 +15,6 @@
 
 namespace lunanx
 {
-
-class PhoneSignInServer;
 
 // Écran principal : connexion au compte, puis jeux Luna présentés en carrousel sur le visuel
 // du jeu sélectionné (même présentation que NxNow). Les jeux affichés sont ceux de
@@ -40,10 +41,9 @@ class LibraryView : public brls::Box
         Premium,
     };
 
-    // En-tête, pied de page et zones de contenu.
+    // En-tête et zones de contenu.
     void BuildHeader();
     void BuildLibraryPanel();
-    void BuildFooter();
     void RefreshTexts();
     void ShowLibraryPanel(bool visible);
     void SetStatus(const std::string& text);
@@ -57,18 +57,19 @@ class LibraryView : public brls::Box
     void ShowSignedOut();
     void ShowStorePicker();
     void ChooseStore(const std::string& market_code);
-    void SignInWithAmazon();
-    void SignInWithPhone();
-    void StopPhoneSignIn();
-    void CompleteSignIn(const luna::PendingSignIn& pending, const std::string& code);
-    brls::Box* ResetScroller();
+    void SignInWithCode();
+    void ShowDeviceCode(const luna::DeviceCodeChallenge& challenge);
+    void StopCodeSignIn();
+    brls::Box* ResetScroller(bool cancel_code_sign_in = true);
 
     // Bibliothèque.
     void ShowCatalog(const std::vector<luna::Shelf>& shelves);
     void ShowGameList();
     void AddListCell(const luna::Game& game);
     void SelectSection(Section section);
+    void ApplySection(Section section);
     void RebuildSectionGames();
+    void RefreshRecentGames();
     void RefreshCarousel(bool keep_selection);
     void ChangePage(int delta);
     void CycleSection(int delta);
@@ -79,6 +80,7 @@ class LibraryView : public brls::Box
     void ClearSearch();
     void ShowMainMenu();
     void ShowAccount();
+    void OpenSettings();
     void PlaySelected();
     const luna::Game* FindSectionGame(const std::string& id) const;
     bool IsLocked(const luna::Game& game) const;
@@ -91,7 +93,6 @@ class LibraryView : public brls::Box
     ui::ConsoleButton* all_button_ = nullptr;
     ui::ConsoleButton* recent_button_ = nullptr;
     ui::ConsoleButton* top_button_ = nullptr;
-    ui::ConsoleButton* premium_button_ = nullptr;
     ui::ConsoleButton* search_button_ = nullptr;
     ui::ConsoleButton* account_button_ = nullptr;
     ui::ConsoleButton* settings_button_ = nullptr;
@@ -110,7 +111,6 @@ class LibraryView : public brls::Box
     ui::ConsoleButton* play_button_ = nullptr;
     brls::Label* page_label_ = nullptr;
     brls::Label* empty_label_ = nullptr;
-    brls::Label* version_label_ = nullptr;
 
     // Écrans de connexion, messages et liste simple.
     brls::ScrollingFrame* scroller_ = nullptr;
@@ -126,7 +126,8 @@ class LibraryView : public brls::Box
     std::shared_ptr<luna::LunaClient> client_;
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
     bool loading_ = false;
-    std::unique_ptr<PhoneSignInServer> phone_server_;
+    uint64_t account_generation_ = 0;
+    std::shared_ptr<std::atomic_bool> code_sign_in_cancel_;
 
     // Catalogue : tous les jeux connus, sans doublon (ASIN ou titre normalisé).
     std::vector<luna::Shelf> shelves_;
@@ -135,11 +136,16 @@ class LibraryView : public brls::Box
     std::string featured_id_;
     std::string rendered_layout_;
     bool recent_changed_ = false;
+    std::vector<luna::Shelf> recent_shelves_;
+    bool recent_loaded_ = false;
+    bool recent_loading_ = false;
+    uint64_t recent_request_generation_ = 0;
     luna::AccountPlan plan_ = luna::AccountPlan::Unknown;
     std::string plan_label_;
 
     // Rubrique affichée.
-    Section section_ = Section::All;
+    Section section_ = Section::Top;
+    bool startup_selection_pending_ = true;
     std::vector<luna::Game> section_games_;
     size_t page_ = 0;
     std::string selected_id_;

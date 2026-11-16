@@ -1,6 +1,12 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=875d1ab02a1225630dc7
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u875d1ab02a1225630dc7, "875d1ab02a1225630dc7")
+
 #include "luna_client.hpp"
 
 #include "entitlement_policy.hpp"
+#include "recent_games.hpp"
 #include "core/app_paths.hpp"
 #include "core/i18n.hpp"
 #include "core/runtime_journal.hpp"
@@ -211,7 +217,12 @@ Game ExtractGame(json_t* widget)
     game.image_landscape = FirstStr(data, {"imageLandscape", "tileImageLandscape", "focusedImageLandscape",
                                            "focusedImage", "backgroundImageLandscape", "imageUrlLandscape"});
     game.image_portrait = FirstStr(data, {"imagePortrait", "tileImagePortrait", "focusedImagePortrait",
-                                          "productBackgroundPortrait", "imageUrl", "image"});
+                                          "productBackgroundPortrait"});
+    if (game.image_portrait.empty())
+        game.image_portrait = FirstStr(hover, {"imagePortrait", "tileImagePortrait", "productBackgroundPortrait"});
+    // Une image générique peut être une bannière ou un logo carré, pas une jaquette.
+    if (game.image_landscape.empty())
+        game.image_landscape = FirstStr(data, {"imageUrl", "image", "backgroundImage"});
     game.publisher = FirstStr(hover, {"publishersText"});
     if (game.publisher.empty())
         game.publisher = FirstStr(data, {"publishersText"});
@@ -276,14 +287,15 @@ Game ExtractGame(json_t* widget)
 // Un vrai jeu, par opposition à une tuile de collection, de genre ou de chaîne.
 bool LooksLikeGameTile(const std::string& type, const Game& game)
 {
-    return type.find("GAME") != std::string::npos || type.find("PRODUCT") != std::string::npos ||
+    return type == "RECENTLY_PLAYED_TILE" || type.find("GAME") != std::string::npos || type.find("PRODUCT") != std::string::npos ||
            !game.asin.empty() || game.page_uri.rfind("game/", 0) == 0;
 }
 
 bool CanOpen(const Game& game)
 {
     return !game.title.empty() &&
-           (!game.page_uri.empty() || !game.detail_service_token.empty() || !game.play_service_token.empty());
+           (!game.page_uri.empty() || !game.detail_service_token.empty() || !game.play_service_token.empty() ||
+            (!game.play_token.empty() && !game.game_id.empty()));
 }
 
 std::string RowTitle(json_t* row, const std::string& fallback)
@@ -392,6 +404,57 @@ void ParseGameDetail(json_t* page, Game& game)
                 game.image_portrait = Str(payload, "productIcon");
         }
     });
+}
+
+// Signaux employés par le client web Luna, indépendants des libellés traduits.
+bool IsRecentWidget(json_t* widget)
+{
+    const std::string type = Str(widget, "type");
+    json_t* data = json_object_get(widget, "presentationData");
+    const std::string subtype = Str(data, "subtype");
+    const std::string icon = Str(data, "image");
+    return type.rfind("RECENTLY_PLAYED", 0) == 0 || type.rfind("CONTINUE_PLAYING", 0) == 0 ||
+           subtype.rfind("RECENTLY_PLAYED", 0) == 0 || subtype.rfind("CONTINUE_PLAYING", 0) == 0 ||
+           icon.find("icon_continue_playing_carousel") != std::string::npos;
+}
+
+std::vector<Shelf> ParseShelfPage(json_t* page, const std::string& fallback)
+{
+    DecodeEmbeddedJson(page);
+    std::vector<Shelf> shelves;
+    Walk(page, [&](json_t* row) {
+        json_t* children = json_object_get(row, "widgets");
+        const std::string type = Str(row, "type");
+        if (!json_is_array(children) || IsIgnoredWidgetType(type))
+            return;
+        Shelf recent {RowTitle(row, fallback), type, {}, true};
+        Shelf other {recent.title, type, {}};
+        const bool recent_row = IsRecentWidget(row);
+        size_t index = 0;
+        json_t* child = nullptr;
+        json_array_foreach(children, index, child)
+        {
+            const std::string child_type = Str(child, "type");
+            if (IsIgnoredWidgetType(child_type) || child_type.find("GENRE") != std::string::npos ||
+                child_type.find("BANNER") != std::string::npos || child_type.find("EMPTY") != std::string::npos ||
+                child_type.find("BUTTON") != std::string::npos ||
+                json_array_size(json_object_get(child, "widgets")) > 0)
+                continue;
+            Game game = ExtractGame(child);
+            if (!LooksLikeGameTile(child_type, game))
+                continue;
+            if (child_type == "RECENTLY_PLAYED_TILE")
+                ParseGameDetail(child, game);
+            if (!CanOpen(game) && game.detail_service_token.empty() && game.play_service_token.empty())
+                continue;
+            (recent_row || IsRecentWidget(child) ? recent.games : other.games).push_back(std::move(game));
+        }
+        if (!recent.games.empty())
+            shelves.push_back(std::move(recent));
+        if (!other.games.empty())
+            shelves.push_back(std::move(other));
+    });
+    return shelves;
 }
 
 // Détecte la boutique Amazon d'origine des cookies (amazon.fr, .de, .co.uk, .pl, .nl, .com...).
@@ -853,6 +916,118 @@ json_t* LunaClient::GetPage(json_t* page_context, const std::string& service_tok
     return Call("getPage", body);
 }
 
+void LunaClient::ResolveLazyCollections(json_t* page, bool strict_recent) const
+{
+    DecodeEmbeddedJson(page);
+    std::set<std::string> requested;
+    constexpr size_t kMaximumWidgets = 16;
+    for (int depth = 0; depth < 4 && requested.size() < kMaximumWidgets; ++depth)
+    {
+        std::vector<json_t*> pending;
+        Walk(page, [&](json_t* node) {
+            const std::string type = Str(node, "type");
+            const bool collection = Str(node, "__type").rfind("CollectionProxy", 0) == 0 ||
+                                    type == "CAROUSEL" || IsRecentWidget(node);
+            if (collection && !IsIgnoredWidgetType(type) && type != "RECENTLY_PLAYED_TILE" &&
+                json_array_size(json_object_get(node, "widgets")) == 0 &&
+                (!Str(node, "serviceToken").empty() || !Str(node, "id").empty()))
+                pending.push_back(node);
+        });
+        bool resolved = false;
+        for (json_t* node : pending)
+        {
+            if (requested.size() >= kMaximumWidgets)
+                break;
+            const std::string token = Str(node, "serviceToken");
+            const std::string id = Str(node, "id");
+            const std::string key = token.empty() ? id : token;
+            if (!requested.insert(key).second)
+                continue;
+            json_t* body = json_pack("{s:i,s:s,s:o,s:[]}", "timeout", 10000, "featureScheme", "WEB_V1",
+                                     "clientContext", ClientContext(), "dynamicFeatures");
+            if (!token.empty())
+                json_object_set_new(body, "serviceToken", json_string(token.c_str()));
+            else
+            {
+                json_t* context = json_object_get(page, "pageContext");
+                if (!json_is_object(context))
+                {
+                    json_decref(body);
+                    continue;
+                }
+                json_object_set_new(body, "pageContext", json_deep_copy(context));
+                json_object_set_new(body, "widgetId", json_string(id.c_str()));
+            }
+            try
+            {
+                auto response = Adopt(Call("getWidget", body));
+                DecodeEmbeddedJson(response.get());
+                json_t* widget = json_object_get(response.get(), "widget");
+                if (!json_is_object(widget))
+                    continue;
+                json_t* old_data = json_object_get(node, "presentationData");
+                json_t* new_data = json_object_get(widget, "presentationData");
+                if (json_is_object(old_data) && json_is_object(new_data))
+                    json_object_update_missing(new_data, old_data);
+                json_object_update(node, widget);
+                resolved = true;
+            }
+            catch (const SignInRequired&) { throw; }
+            catch (const LunaError&)
+            {
+                if (strict_recent && IsRecentWidget(node))
+                    throw;
+                LogRuntimeEvent("luna", "collection_load_failed", "type=" + Str(node, "type"));
+            }
+        }
+        if (!resolved)
+            break;
+    }
+}
+
+std::vector<Shelf> LunaClient::FetchRecentShelves() const
+{
+    std::vector<Shelf> shelves;
+    std::exception_ptr last_error;
+    bool loaded = false;
+    // Le site ouvre /home et /library avec ces contextes sur toutes les boutiques.
+    for (const char* type : {"landing_home", "landing_library"})
+    {
+        std::string stored;
+        {
+            std::lock_guard<std::mutex> lock(catalog_links_mutex_);
+            const auto found = recent_page_contexts_.find(type);
+            if (found != recent_page_contexts_.end())
+                stored = found->second;
+        }
+        json_t* context = stored.empty() ? nullptr : json_loads(stored.c_str(), 0, nullptr);
+        if (!context)
+            context = json_pack("{s:s,s:s}", "pageType", type, "pageId", "default");
+        try
+        {
+            auto page = Adopt(GetPage(context));
+            ResolveLazyCollections(page.get(), true);
+            auto rows = ParseShelfPage(page.get(), {});
+            auto recent = RecentGamesForShelves(rows, {});
+            LogRuntimeEvent("luna", "recent_page_loaded", std::string(type) +
+                " shelves=" + std::to_string(rows.size()) + " games=" + std::to_string(recent.size()));
+            if (!recent.empty())
+                shelves.push_back(Shelf {Tr("Reprendre"), "RECENTLY_PLAYED_ROW", std::move(recent), true});
+            loaded = true;
+        }
+        catch (const SignInRequired&) { throw; }
+        catch (const LunaError&)
+        {
+            last_error = std::current_exception();
+            LogRuntimeEvent("luna", "recent_page_failed", type);
+        }
+    }
+    // Une page vide ne prouve pas l'absence de parties si l'autre n'a pas pu être chargée.
+    if (last_error && (!loaded || shelves.empty()))
+        std::rethrow_exception(last_error);
+    return shelves;
+}
+
 std::vector<Shelf> LunaClient::FetchShelves() const
 {
     std::vector<Shelf> shelves;
@@ -874,69 +1049,41 @@ std::vector<Shelf> LunaClient::FetchShelves() const
     };
 
     auto collect = [&](json_t* page, const std::string& tab_title) {
-        DecodeEmbeddedJson(page);
-        std::vector<json_t*> rows;
-        Walk(page, [&](json_t* node) {
-            if (json_is_array(json_object_get(node, "widgets")))
-                rows.push_back(node);
-        });
-
-        for (json_t* row : rows)
+        ResolveLazyCollections(page);
+        json_t* context = json_object_get(page, "pageContext");
+        const std::string page_type = Str(context, "pageType");
+        if (page_type == "landing_home" || page_type == "landing_library")
         {
-            const std::string row_type = Str(row, "type");
-            if (IsIgnoredWidgetType(row_type) || row_type.find("FOOTER") != std::string::npos)
-                continue;
-            remember_link(row);
-            Shelf shelf;
-            shelf.title = RowTitle(row, tab_title);
-            shelf.row_type = row_type;
-            std::vector<size_t> row_pending;
-            size_t index = 0;
-            json_t* child = nullptr;
-            json_array_foreach(json_object_get(row, "widgets"), index, child)
+            char* text = json_dumps(context, JSON_COMPACT);
+            if (text)
             {
-                const std::string type = Str(child, "type");
-                if (IsIgnoredWidgetType(type))
-                    continue;
-                // « Tout voir », genres, bannières : pages à explorer, pas des jeux.
-                if (type.find("GENRE") != std::string::npos || type.find("BANNER") != std::string::npos ||
-                    type.find("EMPTY") != std::string::npos || type.find("BUTTON") != std::string::npos)
-                {
-                    remember_link(child);
-                    continue;
-                }
-                json_t* nested = json_object_get(child, "widgets");
-                if (json_is_array(nested) && json_array_size(nested) > 0)
-                {
-                    remember_link(child);
-                    continue;
-                }
-                Game game = ExtractGame(child);
-                if (!LooksLikeGameTile(type, game))
-                {
-                    remember_link(child);
-                    continue;
-                }
+                std::lock_guard<std::mutex> lock(catalog_links_mutex_);
+                recent_page_contexts_[page_type] = text;
+                free(text);
+            }
+        }
+        Walk(page, [&](json_t* node) {
+            if (!IsIgnoredWidgetType(Str(node, "type")))
+                remember_link(node);
+        });
+        for (auto& shelf : ParseShelfPage(page, tab_title))
+        {
+            std::vector<Game> games;
+            for (auto& game : shelf.games)
+            {
                 const std::string key = !game.detail_service_token.empty() ? game.detail_service_token
                                       : !game.asin.empty() ? game.asin : game.title;
                 if (key.empty() || !seen_tokens.insert(shelf.title + "|" + key).second)
                     continue;
-                if (CanOpen(game) && (!game.image_landscape.empty() || !game.image_portrait.empty()))
-                {
-                    shelf.games.push_back(std::move(game));
-                }
-                else if (!game.detail_service_token.empty() || !game.play_service_token.empty())
-                {
-                    // Titre/visuel absents : complétés plus bas depuis la fiche du jeu.
-                    row_pending.push_back(shelf.games.size());
-                    shelf.games.push_back(std::move(game));
-                }
+                if (game.title.empty())
+                    pending.push_back({shelves.size(), games.size()});
+                games.push_back(std::move(game));
             }
-            if (shelf.games.empty())
-                continue;
-            for (size_t slot : row_pending)
-                pending.push_back({shelves.size(), slot});
-            shelves.push_back(std::move(shelf));
+            if (!games.empty())
+            {
+                shelf.games = std::move(games);
+                shelves.push_back(std::move(shelf));
+            }
         }
     };
 
@@ -946,16 +1093,25 @@ std::vector<Shelf> LunaClient::FetchShelves() const
                     "pageType", account_.initial_page_type.c_str());
     auto navigation = Adopt(GetPage(nav_context));
     DecodeEmbeddedJson(navigation.get());
+    collect(navigation.get(), Tr("Accueil"));
 
     std::vector<std::pair<std::string, std::string>> tabs;
     std::set<std::string> tab_tokens;
     std::string plan_status;
+    PlayerProfile profile;
     Walk(navigation.get(), [&](json_t* node) {
         const std::string type = Str(node, "type");
         // Menu du joueur : statut de l'abonnement Luna du compte.
-        if (type == "NAV_ITEM_DROPDOWN_PLAYER" && plan_status.empty())
-            plan_status = FirstStr(json_object_get(node, "presentationData"),
-                                   {"customerPlanStatus", "planStatus", "subscriptionStatus"});
+        if (type == "NAV_ITEM_DROPDOWN_PLAYER" || type == "PLAYER_NAV_ITEM")
+        {
+            json_t* data = json_object_get(node, "presentationData");
+            if (plan_status.empty())
+                plan_status = FirstStr(data, {"customerPlanStatus", "planStatus", "subscriptionStatus"});
+            if (profile.name.empty())
+                profile.name = FirstStr(data, {"profileName", "displayName"});
+            if (profile.avatar_url.empty())
+                profile.avatar_url = Str(data, "avatarUrl");
+        }
         if (type != "NAV_ITEM" && type != "NAV_SECONDARY_ITEM")
             return;
         const std::string label = FirstStr(json_object_get(node, "presentationData"), {"text", "title", "ariaLabel"});
@@ -1051,6 +1207,7 @@ std::vector<Shelf> LunaClient::FetchShelves() const
     {
         std::lock_guard<std::mutex> lock(catalog_links_mutex_);
         catalog_links_ = links;
+        profile_ = std::move(profile);
         plan_label_ = plan_status;
         plan_ = PlanFromStatus(plan_status);
     }
@@ -1072,6 +1229,12 @@ AccountPlan LunaClient::Plan() const
 {
     std::lock_guard<std::mutex> lock(catalog_links_mutex_);
     return plan_;
+}
+
+PlayerProfile LunaClient::Profile() const
+{
+    std::lock_guard<std::mutex> lock(catalog_links_mutex_);
+    return profile_;
 }
 
 std::string LunaClient::PlanLabel() const

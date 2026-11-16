@@ -1,294 +1,162 @@
 <p align="center">
-  <img src="resources/img/lunanx_logo.png" width="220" alt="LunaNX logo">
+  <img src="resources/img/lunanx_logo.png" width="260" alt="LunaNX 3.0 logo">
 </p>
 
-<h1 align="center">LunaNX v2.1.0 — Amazon Luna on Nintendo Switch</h1>
+<h1 align="center">LunaNX 3.0</h1>
+<p align="center"><strong>Amazon Luna cloud gaming on Nintendo Switch</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.1.0-7c5cff" alt="Version 2.1.0">
-  <img src="https://img.shields.io/badge/platform-Nintendo%20Switch%20(homebrew)-e60012" alt="Nintendo Switch homebrew">
-  <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License GPL-3.0">
+  <a href="https://github.com/kazar-root/LunaNX/releases/tag/v3.0"><img src="https://img.shields.io/badge/release-v3.0-8955ff" alt="Release v3.0"></a>
+  <img src="https://img.shields.io/badge/platform-Nintendo%20Switch%20Homebrew-e60012" alt="Nintendo Switch homebrew">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0 license"></a>
 </p>
 
-> [!CAUTION]
-> **LunaNX is the first project that made Amazon Luna run on the Nintendo Switch.** Some people
-> have taken its entire source code and are republishing the same project, often **under the same
-> name**, without giving any credit to the original work. That is neither fair nor respectful of
-> the many hours invested in it.
->
-> **Reminder: LunaNX is licensed under the GPL-3.0, and licenses apply in the homebrew world
-> too.** You are free to study, modify and share LunaNX, but you **must** keep the original
-> copyright and credits (*KazaR-RooT* and this repository), publish your full source code under
-> the same license, and clearly state what you changed.
->
-> **⚠️ Be very careful: the most recent unauthorized copy also introduced security flaws related
-> to Amazon marketplaces.** Your Amazon account is at stake: **only download LunaNX from this
-> repository** ([Releases](../../releases/latest)) and check the SHA-256 checksum.
->
-> Improvements are planned, and they will be published here.
+Play your Amazon Luna library directly on a homebrew-enabled Nintendo Switch, with no PC
+streaming host required. Browse your games, sign in with an Amazon code and start playing
+with Joy-Con, a Pro Controller or the console in handheld mode.
 
-**LunaNX** is a homebrew application (`.nro`) that lets you play **Amazon Luna** cloud games on a
-Nintendo Switch running custom firmware. It signs in to your Amazon account, shows your Luna
-library, and streams the game to the console with your controller as the input device.
+**Created by KazaR-RooT.** This is the official LunaNX repository.
 
-> [!IMPORTANT]
-> LunaNX is an **unofficial community project**. It is not affiliated with, endorsed by or
-> sponsored by Amazon or Nintendo. Amazon Luna and Nintendo Switch are trademarks of their
-> respective owners. You need your own Amazon account with access to Luna; the games available
-> depend on your subscription and your country.
+**[Download LunaNX 3.0](https://github.com/kazar-root/LunaNX/releases/tag/v3.0)** ·
+[Installation guide](INSTALLATION.md) · [Release notes](RELEASE_NOTES.md) · [Report an issue](https://github.com/kazar-root/LunaNX/issues)
 
-## What's new in v2.1.0
+> LunaNX is an unofficial community project, independent of Amazon and Nintendo. You need
+> your own Amazon account with access to Luna. Available games depend on your country and subscription.
 
-**A redesigned home screen.** Your games are now shown in an animated carousel over the artwork
-of the selected game, with its details and a large **PLAY** button below. The header gives you
-the sections (All games, Continue, Top 10, Luna Premium), search, your account and a status
-pill with the time, battery, network and your Luna subscription.
+![LunaNX 3.0 library and Top 10](docs/screenshots/v3/library.jpg)
 
-**Only the games of your subscription.** LunaNX reads your Luna subscription and shows the
-games included in it. Luna Premium games carry a gold badge; if your account does not have
-Luna Premium, they are grouped in a separate **Luna Premium** section with a padlock.
+## What's new in 3.0
 
-See [CHANGELOG.md](CHANGELOG.md) for details.
-
-## What's new in v2.0.2
-
-**This update takes user feedback and the user experience into account.**
-
-- **Queue position**: when Luna puts you in a queue, the waiting screen shows your position, and
-  the estimated wait when Luna provides it.
-- **Check for updates**: a new button in Settings tells you whether you have the latest LunaNX
-  version published on GitHub.
-- **Sign out now really removes your Amazon account from the console**: you return to the sign-in
-  screen, and your session, cookies and recently played games are deleted from the SD card.
-
-## What's new in v2.0.1
-
-**Six new countries: LunaNX now covers all 14 Luna countries.** This update adds the new
-countries requested by several users. In addition to France, Germany, United Kingdom, Spain,
-Italy, United States and Canada, you can now choose: Poland, Netherlands, Sweden, Belgium, Nederlands, Austria, Portugal & Luxembourg.
-
-**Three new interface languages**: Polski, Nederlands and Svenska (11 languages in total).
-
-- Austria, Portugal and Luxembourg have no Amazon store of their own: choose your country and
-  LunaNX uses the Amazon store where Prime is offered there (amazon.de or amazon.es), while
-  telling Luna your real country, as the Luna website does. In Luxembourg, if your Prime
-  subscription is on amazon.fr, choose **France** instead.
-- For amazon.pl, amazon.nl, amazon.se and amazon.com.be accounts, the sign-in page is Amazon's
-  European sign-in page on **amazon.de**, shown in your store's language. European Amazon
-  accounts are shared, so your usual email and password work there.
-
-**If you notice a problem, don't hesitate to contact me** by opening an issue in the
-[Issues](../../issues) page.
-
-### How to sign in
-
-There are currently **3 ways** to sign in to your Amazon account:
-
-1. **Sign in with Amazon** (directly in the Switch browser). ⚠️ This method **does not work on
-   firmware 23.x (CFW) for now**: use method 2 instead.
-2. **Sign in with my phone** (QR code): the recommended method, which does not use the Switch
-   browser (see [What's new in v2.0](#whats-new-in-v20) below).
-3. **`cookies.txt` file** exported once from a PC browser (fallback; instructions are shown on
-   the sign-in screen).
-
-## What's new in v2.0
-
-**Sign in with your phone.** On some consoles the Switch browser does not open the Amazon
-sign-in page and shows **"This feature is not available"**. LunaNX v2.0 adds a second way to
-sign in that does not use the Switch browser at all:
-
-1. On the sign-in screen, choose **Sign in with my phone**.
-2. Scan the QR code shown on the Switch with your phone or tablet (on the same Wi-Fi network).
-3. Sign in on the **official Amazon page** in your phone's browser.
-4. Copy the address of the last page Amazon shows, paste it into the LunaNX page and send it to
-   the Switch. Your Luna library appears.
-
-Your password is typed only on Amazon's site: LunaNX never sees it. No PC, no browser extension
-and no `cookies.txt` file are needed.
-
-If the Switch browser works on your console, **Sign in with Amazon** still lets you sign in
-directly on the Switch, without a phone (not on firmware 23.x for now).
-
-LunaNX works in all the countries where Luna is available: France, Germany, United Kingdom,
-Spain, Italy, United States and Canada (with the North American Luna server fix of v1.2), and,
-since v2.0.1, Poland, Netherlands, Sweden, Belgium, Austria, Portugal and Luxembourg.
-
-I hope you'll enjoy this update and that it finally lets you make the most of Luna on your
-Switch! — *KazaR-RooT*
-
-Earlier versions: see [CHANGELOG.md](CHANGELOG.md).
-
-## What's next
-
-**Mouse and keyboard support** is planned for a next version. Until then, feel free to share
-your feedback, remarks and bug reports in the [Issues](../../issues) page: they will shape the
-next versions.
-
-## Features
-
-- **Amazon sign-in, three ways**: **with your phone** (QR code), in the Switch browser (not on
-  firmware 23.x for now), or with a `cookies.txt` file as a fallback. The first two use the
-  official Amazon sign-in page; the session then renews automatically. Your password is never
-  seen or stored by LunaNX.
-- **All 14 Luna countries**: France, Germany, United Kingdom, Spain, Italy, Poland,
-  Netherlands, Sweden, Belgium, Austria, Portugal, Luxembourg, United States and Canada, chosen
-  at first launch.
-- **Interface in 11 languages**: Deutsch, English, Español, Français, Italiano, Nederlands,
-  Polski, Português, Русский, Svenska, 简体中文.
-- **Luna library** in an animated carousel over the artwork of the selected game, loaded
-  automatically:
-  - **All games** of your subscription, explored live, starting with Luna's featured game,
-  - **Continue** (your last 10 games launched from LunaNX),
-  - **Top 10** (current Luna ranking, when Luna provides it for your account),
-  - **Luna Premium** games, grouped separately when your account does not include them,
-  - **search** by title, and an optional **simple list** view.
-- **Game streaming**: 720p at 60 fps, H.264 video, stereo audio, with bitrate adapted to your
-  network.
-- **Automatic server selection** based on measured latency (a server region can also be chosen
-  manually).
-- **Controllers**: Joy-Con, Pro Controller and handheld mode, with **rumble**. Switch button
-  labels by default (Xbox layout available); the D-pad can also drive the left stick.
-- **Settings**: language, Amazon store, sign out, library view, server region, button layout,
-  sound, volume, audio buffer, optional in-game technical overlay.
+- **A redesigned interface and a new logo.** Browse an animated cover carousel over the
+  selected game's artwork. Header icons have permanent labels, the active Luna profile has
+  its own avatar, and the status bar shows the actual Wi-Fi or Ethernet connection.
+- **Optimized streaming and responsiveness.** The 720p/60 H.264 streaming path uses bounded
+  decode queues, latest-frame presentation and adaptive image tuning to keep gameplay responsive.
+  Artwork loading and catalog exploration also run in the background.
+- **Live in-game performance information.** Press **+ and − together** to show battery level,
+  estimated remaining battery time, the clock, measured stream bitrate and presented FPS
+  in one compact line. Press the shortcut again to hide it.
+- **A simpler Amazon sign-in method.** Choose your country, scan the QR code or open the
+  displayed official Amazon page, then enter the short code. LunaNX signs in automatically
+  after confirmation. Your phone can use another Wi-Fi network or mobile data.
+- **A more useful home screen.** Navigation is now **Main menu → Top 10 → Continue playing →
+  All games → Search**. LunaNX starts on Top 10, or Continue playing when recent games are
+  detected. Luna Premium remains accessible from the main menu.
+- **Continue playing that keeps your games available.** Local launches are saved and matched
+  to the current catalog; Luna's account history is loaded too, including separate collections.
+  The latest console launches appear first, without duplicates.
+- **Better touch browsing and cover artwork.** Tap a cover to select it, swipe to browse and
+  use PLAY to launch. Portrait artwork is retained when a game also has a landscape banner;
+  images fit their cards without stretching or cutting off the cover.
+- **A clearer launch screen and settings.** The centered LunaNX logo sits above the game name
+  and launch status. Country choices show country names only, the settings scrollbar has its
+  own space, and a small white version label appears only on the main library screen.
 
 ## Screenshots
 
-| Luna library | In game |
+These are real console captures supplied by the creator. The interface supports multiple
+languages; individual captures may show different language settings.
+
+| Continue playing | Search results and corrected covers |
 | --- | --- |
-| ![LunaNX library](docs/screenshots/Screen%20LunaNX%20v1.0%201.jpg) | ![Game streamed with LunaNX](docs/screenshots/Screen%20LunaNX%20v1.0%202.jpg) |
-| **Launching a game** | **Settings** |
-| ![Connecting to the nearest Luna server](docs/screenshots/Screen%20LunaNX%20v1.0%203.jpg) | ![LunaNX settings](docs/screenshots/Screen%20LunaNX%20v1.0%204.jpg) |
+| ![Continue playing](docs/screenshots/v3/continue-playing.jpg) | ![Sonic search results](docs/screenshots/v3/search-results.jpg) |
+| **Branded game launch screen** | **Live performance overlay** |
+| ![Launching a game](docs/screenshots/v3/game-launch.jpg) | ![Battery, bitrate and FPS during gameplay](docs/screenshots/v3/performance-overlay.jpg) |
+| **On-screen game search** | **Language selection** |
+| ![Search keyboard](docs/screenshots/v3/search-keyboard.jpg) | ![Language settings](docs/screenshots/v3/languages.jpg) |
 
-## Requirements
+![STAR WARS: Galactic Racer running through LunaNX](docs/screenshots/v3/galactic-racer.jpg)
 
-- A Nintendo Switch able to run homebrew (custom firmware such as Atmosphère, with the
-  Homebrew Menu).
-- An internet connection (5 GHz Wi-Fi close to the router recommended).
-- An Amazon account with access to Amazon Luna in your country.
+## Get started
 
-## Installation
+1. Download **LunaNX.nro** from the [3.0 release](https://github.com/kazar-root/LunaNX/releases/tag/v3.0).
+2. Copy it to **sdmc:/switch/LunaNX/LunaNX.nro**.
+3. Open the Homebrew Menu in **application mode**: hold **R** while launching a game, then select LunaNX.
+4. Choose your country and **Simplified sign-in (Amazon code)**. Confirm the code on Amazon;
+   the library opens automatically.
 
-See **[INSTALLATION.md](INSTALLATION.md)** for step-by-step instructions. In short:
+See [INSTALLATION.md](INSTALLATION.md) for updating, account management and file locations.
 
-1. Copy `LunaNX.nro` to `sdmc:/switch/LunaNX/` on your SD card.
-2. Start LunaNX from the Homebrew Menu **in application mode** (hold R while launching a game).
-3. Choose your country, then **Sign in with my phone** (QR code) or **Sign in with Amazon**
-   (Switch browser, not on firmware 23.x for now), and complete the sign-in on the official
-   Amazon page.
+Amazon may display **Audible for iPhone** during sign-in or in its device notifications.
+This is the compatibility profile used by the current sign-in implementation. Enter your
+password only on the official Amazon page shown by LunaNX.
 
-## Usage
+## Controls
 
-1. Your Luna library appears after sign-in.
-2. Move with the D-pad or the left stick, then press **A** on a cover (or **PLAY**) to start
-   the game.
-3. To leave a game, press **ZL + ZR + −** at the same time.
-
-| Action | Button |
+| Action | Control |
 | --- | --- |
-| Launch a game | A on a cover |
-| Settings | **Settings** button (top right) or X |
-| Refresh the library | **Refresh** button or Y |
-| Previous / next page | L / R |
-| Previous / next section | ZL / ZR |
-| Main menu | − or the **☰** button |
-| Search | **Search** button |
-| Clear the search / back to All games | B |
-| Quit LunaNX (library) | + |
-| Start / Xbox button (in game) | + short press / long press |
-| Left stick (in game) | left stick or D-pad |
-| Technical overlay (in game, if enabled in Settings) | L3 + R3 |
-| **Quit a game** | **ZL + ZR + −** |
+| Start the selected game | **A** or the **PLAY** button |
+| Browse covers | D-pad, left stick, or horizontal touch swipe |
+| Select by touch | Tap a cover; it does not launch automatically |
+| Previous / next page | **L / R** |
+| Previous / next section | **ZL / ZR** |
+| Main menu / search / account | Labeled header buttons |
+| Settings | Header button or **X** |
+| Refresh library | **Y** |
+| Clear search / return to All games | **B** |
+| Leave a running game | **ZL + ZR + −** together |
+| Toggle battery, clock, bitrate and FPS | **+ and −** together during gameplay |
+| Technical overlay, if enabled in Settings | **L3 + R3** |
+| Quit LunaNX from the library | **−** or **+** |
 
-## Known limitations
+## Features and compatibility
 
-- **Sign in with Amazon** (Switch browser) does not work on firmware 23.x (CFW) for now: use
-  **Sign in with my phone** (QR code).
-- Streaming quality is fixed at **720p 60 fps** with software decoding.
-- **Application mode is required**: the Switch browser used for sign-in and the memory needed
-  for streaming are not available from the Album (applet mode).
-- **Phone sign-in**: the phone or tablet must be on the same Wi-Fi network as the Switch; guest
-  networks that isolate devices from each other block it. Paste the address soon after signing
-  in: Amazon's sign-in code is only valid for a short time.
-- No keyboard or mouse support: games that require them cannot be controlled.
-- Parental control PIN prompts from Luna are not supported.
-- Game availability depends on your Luna subscription and your country. Luna does not say in
-  its catalog which subscription includes each game: a game outside your subscription shows the
-  message "This game cannot be launched with this account".
-- Arabic and Hebrew interfaces are not available (no right-to-left text support).
+- H.264 video at **720p / 60 FPS**, stereo audio and stream bitrate adapted to the connection.
+- Automatic server selection using measured latency, with manual region selection available.
+- Joy-Con, Pro Controller, handheld controls and rumble. Switch and Xbox button layouts.
+- Subscription-aware library, Top 10, Continue playing, search and an optional simple list view.
+- **11 interface languages:** English, Deutsch, Español, Français, Italiano, Nederlands,
+  Polski, Português, Русский, Svenska and 简体中文.
+- **14 country configurations:** France, Germany, United Kingdom, Spain, Italy, Poland,
+  Netherlands, Sweden, Belgium, Austria, Portugal, Luxembourg, United States and Canada.
 
-## Compatibility
+A homebrew-enabled Nintendo Switch, application mode, an internet connection and an eligible
+Amazon Luna account are required. A stable 5 GHz Wi-Fi connection is recommended.
 
-- Tested on a Nintendo Switch running custom firmware, launched from the Homebrew Menu in
-  application mode.
-- Not tested on every console model or firmware version: please report problems in the
-  [Issues](../../issues) page.
+The current configuration uses software video decoding. Actual FPS, image quality and
+latency depend on the game, server and connection. Keyboard/mouse controls and Luna parental
+PIN prompts are not supported. The on-screen battery time is an estimate based on observed
+discharge; it is not shown as a fixed promised runtime.
 
-## Security and privacy
+## Account data and release integrity
 
-- Your Amazon session is stored on your SD card in `sdmc:/switch/LunaNX/amazon_device.json`.
-  Never share this file. Use **Settings → Sign out of Amazon** before lending or selling your
-  console; you can also remove "LunaNX" from your Amazon account → **Manage your devices**.
-- Log files in `sdmc:/switch/LunaNX/` can contain your IP address: remove it before sharing a
-  log in an issue.
+Your session and settings stay on the SD card. Do not share `amazon_device.json`, cookies or
+unreviewed logs. Use **Settings → Sign out of Amazon** to remove the saved account.
 
-## Download and integrity check
+Download from this repository's [Releases](https://github.com/kazar-root/LunaNX/releases).
+Compare the file with the supplied **SHA256SUMS.txt**:
 
-Download `LunaNX.nro` from the [Releases](../../releases/latest) page. Its SHA-256 checksum is
-given in the release notes; to check it on macOS or Linux:
-
-```bash
+```sh
 shasum -a 256 LunaNX.nro
 ```
 
-## License and source code
+The release includes source attribution and a deterministic source manifest. Offline verification
+instructions are in [docs/PROVENANCE.md](docs/PROVENANCE.md); Continue playing implementation
+notes are in [docs/CONTINUE-PLAYING.md](docs/CONTINUE-PLAYING.md).
 
-LunaNX is distributed under the **GNU General Public License v3.0** (see [LICENSE](LICENSE)).
+## Build from source
 
-This repository contains the complete source code of LunaNX:
-[github.com/kazar-root/LunaNX](https://github.com/kazar-root/LunaNX).
+Install [devkitPro](https://devkitpro.org/wiki/Getting_Started), CMake, Ninja and the Switch dependencies:
 
-Third-party components and their licenses are listed in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), with the full license texts in
-[licenses/](licenses/).
-
-## Building from source
-
-Requirements: [devkitPro](https://devkitpro.org/wiki/Getting_Started) with the following
-packages, plus CMake and Ninja.
-
-```bash
+```sh
 sudo dkp-pacman -S --needed devkitA64 switch-dev switch-curl switch-jansson switch-mbedtls \
   switch-ffmpeg switch-dav1d switch-libopus switch-glfw switch-libdrm_nouveau switch-zlib \
   switch-freetype switch-libpng switch-libwebp switch-sdl2 ninja
 python3 -m pip install --user cmake
-./build.sh
+bash build.sh
 ```
 
-The output file is `build/LunaNX.nro`.
+The resulting file is **build/LunaNX.nro**. Host test instructions are in [tests/README.md](tests/README.md).
 
-## Acknowledgments
+## Credits and license
 
-Thanks to the developers of the open-source projects LunaNX is built on:
-[devkitPro, libnx and deko3d](https://devkitpro.org),
-[Borealis](https://github.com/xfangfang/borealis),
-[libpeer](https://github.com/sepfy/libpeer),
-[Mbed TLS](https://github.com/Mbed-TLS/mbedtls),
-[libsrtp](https://github.com/cisco/libsrtp),
-[usrsctp](https://github.com/sctplab/usrsctp),
-[FFmpeg](https://ffmpeg.org) and averne's
-[NVTEGRA branch](https://github.com/averne/FFmpeg/tree/nvtegra),
-[Moonlight-Switch](https://github.com/XITRIX/Moonlight-Switch),
-[OpenNOW-Switch](https://github.com/OpenCloudGaming/OpenNOW-Switch),
-[curl](https://curl.se), [Jansson](https://github.com/akheron/jansson),
-[cJSON](https://github.com/DaveGamble/cJSON), [Yoga](https://github.com/facebook/yoga),
-[NanoVG](https://github.com/memononen/nanovg), [fmt](https://github.com/fmtlib/fmt),
-zlib, bzip2, Project Nayuki's [QR Code generator](https://www.nayuki.io/page/qr-code-generator-library)
-and Google's Material Icons.
+**LunaNX is created by KazaR-RooT** and released under [GPL-3.0](LICENSE). Preserve the original
+notices when sharing the project. Dependencies retain their own authors and licenses; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [licenses/](licenses/).
 
----
+Thanks to devkitPro, libnx, deko3d, Borealis, libpeer, FFmpeg and averne's NVTEGRA branch,
+Moonlight-Switch, OpenNOW-Switch, Mbed TLS, libsrtp, usrsctp, curl, Jansson and the other
+open-source projects listed in the notices. Game artwork and game screenshots belong to
+their respective rights holders.
 
-**Created by KazaR-RooT**
-
-**Developed with the assistance of Claude Code (Anthropic).**
-
-*"The only limit is your imagination. AI makes it possible."*
+Development assistance: Claude Code and Codex.

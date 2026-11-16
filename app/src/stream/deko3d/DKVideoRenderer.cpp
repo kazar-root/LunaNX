@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=d630bf557a3c610d5fc3
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(ud630bf557a3c610d5fc3, "d630bf557a3c610d5fc3")
+
 #if defined(PLATFORM_SWITCH) && defined(BOREALIS_USE_DEKO3D)
 
 #include "DKVideoRenderer.hpp"

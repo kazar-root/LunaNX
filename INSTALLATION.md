@@ -8,7 +8,7 @@
 
 ## 1. Copy the file
 
-1. Download `LunaNX.nro` from the [Releases](../../releases/latest) page.
+1. Download `LunaNX.nro` from the [Releases](https://github.com/kazar-root/LunaNX/releases/tag/v3.0) page.
 2. Optional: check the file with the SHA-256 checksum given in the release notes:
    ```bash
    shasum -a 256 LunaNX.nro
@@ -27,8 +27,8 @@ LunaNX must run in **application mode**:
 1. On the HOME menu, **hold R** while launching any game or application.
 2. The Homebrew Menu opens: select **LunaNX**.
 
-Do not launch it from the Album (applet mode): the Switch browser needed for sign-in and the
-memory needed for streaming are not available there.
+Do not launch it from the Album (applet mode): streaming needs the memory available in
+application mode.
 
 ## 3. Sign in to Amazon
 
@@ -41,33 +41,29 @@ memory needed for streaming are not available there.
    > - **Austria, Portugal, Luxembourg**: these countries have no Amazon store of their own.
    >   LunaNX uses amazon.de (Austria, Luxembourg) or amazon.es (Portugal), the store where your
    >   Prime subscription is. In Luxembourg, if your Prime is on amazon.fr, choose **France**.
-   > - **Poland, Netherlands, Sweden, Belgium**: the sign-in page is Amazon's European sign-in
-   >   page on **amazon.de**, shown in your store's language. This is expected: European Amazon
-   >   accounts are shared, so sign in with your usual email and password. With **Sign in with
-   >   my phone**, the last page address therefore starts with
-   >   `https://www.amazon.de/ap/maplanding`.
-2. Choose how to sign in:
-   - **Sign in with Amazon** (not on firmware 23.x for now: use the phone below): the official
-     Amazon sign-in page opens in the Switch browser. Enter your email, your password and, if
-     asked, the verification code. The browser closes by itself and your Luna library appears.
-   - **Sign in with my phone**, if the Switch browser does not open or shows "This feature is not
-     available":
-     1. Connect your phone or tablet to the same Wi-Fi network as the Switch.
-     2. Scan the QR code shown on the Switch (or type the address shown under it).
-     3. On the LunaNX page, tap **1. Open the Amazon sign-in page** and sign in on Amazon.
-     4. At the end, Amazon shows a "page not found" page or an error: this is normal. Copy the
-        full address of that page from the address bar.
-     5. Go back to the LunaNX tab, paste the address and tap **Send to the Switch**. Your Luna
-        library appears on the Switch.
+   > - **Poland, Netherlands, Sweden, Belgium**: code confirmation uses Amazon's shared
+   >   European sign-in service on **amazon.de**. Use your usual Amazon account.
+2. Choose **Simplified sign-in (Amazon code)**.
+3. Scan the QR code or open the official Amazon `/code` address shown on the Switch.
+4. Sign in to Amazon on your phone or PC and enter the short code from the Switch.
+5. Wait for the library to appear automatically. The phone can use mobile data or another
+   Wi-Fi network. Codes expire after about ten minutes.
 
-Wrong store? Choose **Change store** on the sign-in screen, or change it later in
+Wrong country? Choose **Change country** on the sign-in screen, or change it later in
 **Settings → Amazon account**.
 
-The console is added to your Amazon devices as "LunaNX". The session renews automatically.
+The session renews automatically. Amazon may display **Audible for iPhone** on the sign-in
+page or in device notifications because the current connection uses that compatibility profile.
 
 ## 4. Play
 
-Select a cover and press **A**. To leave a game, press **ZL + ZR + −** together.
+Select a cover with the controller or by touching it. Swipe horizontally to browse games and
+change pages. Tap **PLAY** or press controller **A** to launch; touching a cover only selects
+it. To leave a game, press **ZL + ZR + −** together.
+
+During a game, press **+ and − together** to show or hide battery level, estimated remaining
+battery life, the time, actual stream bitrate and FPS. An autonomy estimate appears after
+sufficient discharge has been measured; while charging, the charging status is shown.
 
 ## Updating
 

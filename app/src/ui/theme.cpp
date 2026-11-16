@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=a6d0ff48736db914084a
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(ua6d0ff48736db914084a, "a6d0ff48736db914084a")
+
 #include "theme.hpp"
 
 #include <borealis/core/assets.hpp>

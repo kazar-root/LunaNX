@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=842f071c0ad701711f55
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u842f071c0ad701711f55, "842f071c0ad701711f55")
+
 #include "cover_image_cache.hpp"
 
 #include "core/http_client.hpp"
@@ -549,6 +554,11 @@ void SetCachedRemoteImage(
 }
 
 } // namespace
+
+void SetCachedAvatarImage(brls::Image* image, const std::string& image_url)
+{
+    SetCachedRemoteImage(image, ResizeAmazonImageUrl(image_url, 96), 96, ImagePriority::Critical);
+}
 
 void SetCachedPosterImage(brls::Image* image, const std::string& image_url)
 {

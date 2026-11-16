@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=313f1a2e3931c53c1a8b
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u313f1a2e3931c53c1a8b, "313f1a2e3931c53c1a8b")
+
 #include "console_widgets.hpp"
 
 #include "core/i18n.hpp"
@@ -13,6 +18,10 @@
 #include <chrono>
 #include <cmath>
 #include <ctime>
+
+#ifdef __SWITCH__
+#include <switch.h>
+#endif
 
 namespace lunanx::ui
 {
@@ -171,8 +180,8 @@ ConsoleButton::ConsoleButton(Icon icon, std::string title, std::function<void()>
     , title_(std::move(title))
     , primary_(primary)
 {
-    setWidth(primary ? 220 : 52);
-    setHeight(52);
+    setWidth(primary ? 220 : 100);
+    setHeight(primary ? 52 : 72);
     setShrink(0);
     setFocusable(true);
     setHideHighlight(true);
@@ -184,6 +193,24 @@ ConsoleButton::ConsoleButton(Icon icon, std::string title, std::function<void()>
     });
     updateActionHint(brls::BUTTON_A, title_);
     addGestureRecognizer(new brls::TapGestureRecognizer(this));
+}
+
+ConsoleButton::~ConsoleButton()
+{
+    RetireImage(std::move(image_));
+}
+
+void ConsoleButton::SetImageUrl(const std::string& url)
+{
+    if (url == image_url_)
+        return;
+    image_url_ = url;
+    RetireImage(std::move(image_));
+    if (!url.empty())
+    {
+        image_ = std::make_unique<brls::Image>();
+        SetCachedAvatarImage(image_.get(), url);
+    }
 }
 
 void ConsoleButton::SetTitle(const std::string& title)
@@ -214,6 +241,15 @@ void ConsoleButton::draw(NVGcontext* vg, float x, float y, float w, float h, brl
     nvgSave(vg);
     nvgGlobalAlpha(vg, getAlpha());
     const float focus = focus_.getValue();
+    // Le libellé fait partie de la zone tactile, sous le cercle.
+    const float button_width = w;
+    const float button_x = x;
+    const float button_y = y;
+    if (!primary_)
+    {
+        w = h = 46;
+        x += (button_width - w) / 2;
+    }
     const float growth = primary_ ? 0.03f * focus : 0;
     x -= w * growth / 2;
     y -= h * growth / 2;
@@ -247,7 +283,16 @@ void ConsoleButton::draw(NVGcontext* vg, float x, float y, float w, float h, brl
     }
     else
     {
-        DrawIcon(vg, icon_, x + (w - 22) / 2, y + (h - 22) / 2, 22, ink);
+        if (!image_ || !DrawImage(vg, *image_, x + 2, y + 2, w - 4, h - 4, true, 1, (h - 4) / 2))
+            DrawIcon(vg, icon_, x + (w - 22) / 2, y + (h - 22) / 2, 22, ink);
+        const float size = std::clamp(14.0f * (button_width - 4) /
+                                         std::max(1.0f, TextWidth(title_, 14, FontRole::Heading)),
+                                     10.0f, 14.0f);
+        nvgFontFaceId(vg, Font(FontRole::Heading));
+        nvgFontSize(vg, size);
+        nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+        nvgFillColor(vg, active_ || focus > 0.05f ? Accent() : Text());
+        nvgText(vg, button_x + button_width / 2, button_y + 61, title_.c_str(), nullptr);
     }
     if (badge_)
     {
@@ -388,9 +433,21 @@ void StatusPill::draw(NVGcontext* vg, float x, float y, float w, float h, brls::
         auto* platform = brls::Application::getPlatform();
         battery_ = platform->canShowBatteryLevel() ? platform->getBatteryLevel() : -1;
         charging_ = battery_ >= 0 && platform->isBatteryCharging();
+#ifdef __SWITCH__
+        // « Communication enabled » indique une autorisation, pas le lien utilisé.
+        NifmInternetConnectionType type {};
+        NifmInternetConnectionStatus status {};
+        u32 strength = 0;
+        const bool connected = R_SUCCEEDED(nifmGetInternetConnectionStatus(&type, &strength, &status)) &&
+                               status == NifmInternetConnectionStatus_Connected;
+        ethernet_ = connected && type == NifmInternetConnectionType_Ethernet;
+        wifi_ = connected && type == NifmInternetConnectionType_WiFi;
+        wifi_level_ = wifi_ ? std::min(strength, 3u) : 0;
+#else
         ethernet_ = platform->hasEthernetConnection();
         wifi_ = platform->hasWirelessConnection();
         wifi_level_ = wifi_ ? platform->getWirelessLevel() : 0;
+#endif
     }
 
     nvgSave(vg);

@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=9bbcc97df74165b287b1
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u9bbcc97df74165b287b1, "9bbcc97df74165b287b1")
+
 #include "FFmpegVideoDecoder.hpp"
 #include "AVFrameHolder.hpp"
 #include "borealis.hpp"

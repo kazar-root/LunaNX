@@ -1,14 +1,18 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=71d64d34926d73f3d5aa
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u71d64d34926d73f3d5aa, "71d64d34926d73f3d5aa")
+
 #include "library_view.hpp"
 
-#include "amazon_sign_in.hpp"
 #include "core/app_paths.hpp"
 #include "core/app_version.hpp"
 #include "core/i18n.hpp"
 #include "core/runtime_journal.hpp"
 #include "core/stream_settings.hpp"
 #include "luna/entitlement_policy.hpp"
+#include "luna/game_artwork.hpp"
 #include "luna/recent_games.hpp"
-#include "phone_sign_in.hpp"
 #include "qr_code_view.hpp"
 #include "settings_view.hpp"
 #include "stream_view.hpp"
@@ -24,16 +28,6 @@ namespace lunanx
 {
 namespace
 {
-
-std::string CookieHelpText()
-{
-    return TrFormat("Solution de secours si la connexion directe échoue : exporte une seule fois la "
-                    "session de ton navigateur.\n1. Sur ton PC, connecte-toi sur luna.amazon.fr.\n"
-                    "2. Avec l'extension « Get cookies.txt LOCALLY », clique sur « Export » (fichier "
-                    "cookies.txt).\n3. Copie ce fichier dans {}/ puis appuie sur Y.\nATTENTION : ce "
-                    "fichier donne un accès complet à ton compte Amazon. Ne le partage jamais.",
-                    {AppHomePath()});
-}
 
 // Clés d'un jeu : son ASIN et son titre normalisé (deux tuiles du même jeu n'ont pas
 // toujours toutes les deux un ASIN).
@@ -62,7 +56,8 @@ std::string Lowercase(std::string text)
 }
 
 // Ajoute le jeu au catalogue s'il n'y est pas encore (même ASIN ou même titre normalisé).
-bool AddToCatalog(std::vector<luna::Game>& catalog, std::map<std::string, size_t>& index, const luna::Game& game)
+bool AddToCatalog(std::vector<luna::Game>& catalog, std::map<std::string, size_t>& index, const luna::Game& game,
+                  bool* artwork_changed = nullptr)
 {
     const std::vector<std::string> keys = GameKeys(game);
     if (game.title.empty() || keys.empty())
@@ -84,6 +79,9 @@ bool AddToCatalog(std::vector<luna::Game>& catalog, std::map<std::string, size_t
     {
         // Même jeu vu dans une autre rangée : on garde l'étiquette d'offre si elle manquait.
         luna::Game& known = catalog[slot];
+        const bool changed = luna::MergeGameArtwork(known, game);
+        if (artwork_changed)
+            *artwork_changed = *artwork_changed || changed;
         if (known.offer_tag.empty() && !game.offer_tag.empty())
             known.offer_tag = game.offer_tag;
         if (known.offer_icon.empty() && !game.offer_icon.empty())
@@ -100,7 +98,6 @@ bool AddToCatalog(std::vector<luna::Game>& catalog, std::map<std::string, size_t
 }
 
 constexpr size_t kTopCount = 10;
-constexpr size_t kRecentCount = 10;
 
 void AppendUnique(std::vector<luna::Game>& out, std::set<std::string>& seen, const luna::Game& game, size_t limit)
 {
@@ -144,28 +141,6 @@ std::vector<luna::Game> PickTopGames(const std::vector<luna::Shelf>& shelves)
         for (const auto& game : ranking->games)
             AppendUnique(top, seen, game, kTopCount);
     return top;
-}
-
-// « Reprendre » : historique local d'abord, puis une éventuelle rangée Luna de jeux récents.
-std::vector<luna::Game> PickRecentGames(const std::vector<luna::Shelf>& shelves)
-{
-    std::vector<luna::Game> recent;
-    std::set<std::string> seen;
-    for (const auto& played : luna::LoadRecentGames())
-        if (!played.page_uri.empty() || !played.asin.empty())
-            AppendUnique(recent, seen, played, kRecentCount);
-    for (const auto& shelf : shelves)
-    {
-        const std::string title = Lowercase(shelf.title);
-        for (const char* keyword : {"cemment", "reprendre", "continuer", "continue", "recent"})
-            if (title.find(keyword) != std::string::npos)
-            {
-                for (const auto& game : shelf.games)
-                    AppendUnique(recent, seen, game, kRecentCount);
-                break;
-            }
-    }
-    return recent;
 }
 
 // Jeu mis en avant : premier visuel « À la une » de Luna, sinon le n°1 du classement.
@@ -231,18 +206,16 @@ LibraryView::LibraryView()
     body->addView(scroller_);
     addView(body);
 
-    BuildFooter();
-
     registerAction(Tr("Actualiser"), brls::BUTTON_Y, [this](brls::View*) {
         Reload();
         return true;
     });
-    registerAction(Tr("Réglages"), brls::BUTTON_X, [](brls::View*) {
-        brls::Application::pushActivity(new brls::Activity(new SettingsView()));
+    registerAction(Tr("Réglages"), brls::BUTTON_X, [this](brls::View*) {
+        OpenSettings();
         return true;
     });
-    registerAction(Tr("Menu principal"), brls::BUTTON_BACK, [this](brls::View*) {
-        ShowMainMenu();
+    registerAction(Tr("Quitter"), brls::BUTTON_BACK, [](brls::View*) {
+        brls::Application::quit();
         return true;
     });
     registerAction(Tr("Quitter"), brls::BUTTON_START, [](brls::View*) {
@@ -266,6 +239,15 @@ LibraryView::LibraryView()
         return true;
     }, true);
     registerAction({}, brls::BUTTON_B, [this](brls::View*) {
+        if (code_sign_in_cancel_)
+        {
+            auto alive = alive_;
+            brls::sync([this, alive] {
+                if (*alive)
+                    ShowSignIn({});
+            });
+            return true;
+        }
         if (!(library_panel_->getVisibility() == brls::Visibility::VISIBLE) && !catalog_.empty())
             return false;
         if (!search_query_.empty())
@@ -289,57 +271,60 @@ LibraryView::LibraryView()
 LibraryView::~LibraryView()
 {
     *alive_ = false;
-    StopPhoneSignIn();
+    StopCodeSignIn();
 }
 
 void LibraryView::BuildHeader()
 {
-    auto* header = new brls::Box(brls::Axis::ROW);
-    header->setHeight(92);
+    auto* header = new brls::Box(brls::Axis::COLUMN);
+    header->setHeight(156);
     header->setShrink(0);
-    header->setPadding(18, 40, 6, 40);
-    header->setAlignItems(brls::AlignItems::CENTER);
+    header->setPadding(8, 40, 4, 40);
 
+    auto* top = new brls::Box(brls::Axis::ROW);
+    top->setHeight(72);
+    top->setShrink(0);
+    top->setAlignItems(brls::AlignItems::CENTER);
     auto* logo = new brls::Image();
-    logo->setImageFromRes("img/lunanx_logo.png");
-    logo->setWidth(54);
-    logo->setHeight(54);
-    logo->setCornerRadius(14);
+    logo->setImageFromRes("img/lunanx_header.png");
+    logo->setWidth(46);
+    logo->setHeight(46);
+    logo->setCornerRadius(12);
     logo->setMarginRight(10);
-    header->addView(logo);
-    auto* brand = ui::MakeLabel("LunaNX", 24, ui::Text(), ui::FontRole::Display);
-    brand->setMarginRight(22);
-    header->addView(brand);
+    top->addView(logo);
+    top->addView(ui::MakeLabel("LunaNX", 24, ui::Text(), ui::FontRole::Display));
+    auto* spacer = new brls::Box();
+    spacer->setGrow(1.0f);
+    top->addView(spacer);
+    status_pill_ = new ui::StatusPill();
+    status_pill_->setMarginRight(18);
+    top->addView(status_pill_);
+    account_button_ = new ui::ConsoleButton(ui::Icon::Account, Tr("Compte"), [this] { ShowAccount(); });
+    account_button_->setMarginRight(8);
+    top->addView(account_button_);
+    settings_button_ = new ui::ConsoleButton(ui::Icon::Settings, Tr("Réglages"), [this] {
+        OpenSettings();
+    });
+    top->addView(settings_button_);
+    header->addView(top);
 
-    auto add_button = [header](ui::Icon icon, const std::string& title, std::function<void()> action) {
+    auto* navigation = new brls::Box(brls::Axis::ROW);
+    navigation->setHeight(72);
+    navigation->setShrink(0);
+    navigation->setAlignItems(brls::AlignItems::CENTER);
+    auto add_button = [navigation](ui::Icon icon, const std::string& title, std::function<void()> action) {
         auto* button = new ui::ConsoleButton(icon, title, std::move(action));
-        button->setMarginRight(10);
-        header->addView(button);
+        button->setMarginRight(8);
+        navigation->addView(button);
         return button;
     };
     menu_button_ = add_button(ui::Icon::Menu, Tr("Menu principal"), [this] { ShowMainMenu(); });
     menu_button_->setMarginRight(22);
-    all_button_ = add_button(ui::Icon::AllGames, Tr("Tous les jeux"), [this] { SelectSection(Section::All); });
-    recent_button_ = add_button(ui::Icon::Recent, Tr("Reprendre"), [this] { SelectSection(Section::Recent); });
     top_button_ = add_button(ui::Icon::Top, "Top 10", [this] { SelectSection(Section::Top); });
-    premium_button_ = add_button(ui::Icon::Premium, "Luna Premium", [this] { SelectSection(Section::Premium); });
-    premium_button_->SetTint(ui::Premium());
+    recent_button_ = add_button(ui::Icon::Recent, Tr("Reprendre"), [this] { SelectSection(Section::Recent); });
+    all_button_ = add_button(ui::Icon::AllGames, Tr("Tous les jeux"), [this] { SelectSection(Section::All); });
     search_button_ = add_button(ui::Icon::Search, Tr("Rechercher"), [this] { BeginSearch(); });
-
-    auto* spacer = new brls::Box();
-    spacer->setGrow(1.0f);
-    header->addView(spacer);
-
-    status_pill_ = new ui::StatusPill();
-    status_pill_->setMarginRight(10);
-    header->addView(status_pill_);
-    account_button_ = new ui::ConsoleButton(ui::Icon::Account, Tr("Compte"), [this] { ShowAccount(); });
-    account_button_->setMarginRight(10);
-    header->addView(account_button_);
-    settings_button_ = new ui::ConsoleButton(ui::Icon::Settings, Tr("Réglages"), [] {
-        brls::Application::pushActivity(new brls::Activity(new SettingsView()));
-    });
-    header->addView(settings_button_);
+    header->addView(navigation);
     addView(header);
 }
 
@@ -378,16 +363,21 @@ void LibraryView::BuildLibraryPanel()
 
     carousel_ = new GameCarouselView([this](const std::string& id) { SelectGame(id); }, [this] { PlaySelected(); },
                                      [this] { ChangePage(1); }, [this] { ChangePage(-1); });
-    carousel_->setMarginTop(4);
-    carousel_->setMarginLeft(40);
-    carousel_->setMarginRight(40);
-    library_panel_->addView(carousel_);
+    // La zone garde sa hauteur quand l'historique est vide : pas de disparition du
+    // conteneur pendant le changement de rubrique ou le déplacement du focus.
+    auto* carousel_area = new brls::Box(brls::Axis::COLUMN);
+    carousel_area->setHeight(300);
+    carousel_area->setShrink(0);
+    carousel_area->setMargins(4, 40, 0, 40);
+    carousel_area->setJustifyContent(brls::JustifyContent::CENTER);
+    carousel_area->addView(carousel_);
+    library_panel_->addView(carousel_area);
 
     empty_label_ = ui::MakeLabel({}, 22, ui::Text(), ui::FontRole::Heading);
-    empty_label_->setMargins(60, 64, 0, 64);
+    empty_label_->setMargins(12, 24, 12, 24);
     empty_label_->setHorizontalAlign(brls::HorizontalAlign::CENTER);
     empty_label_->setVisibility(brls::Visibility::GONE);
-    library_panel_->addView(empty_label_);
+    carousel_area->addView(empty_label_);
 
     info_ = new brls::Box(brls::Axis::COLUMN);
     info_->setPadding(4, 64, 0, 64);
@@ -430,35 +420,12 @@ void LibraryView::BuildLibraryPanel()
     carousel_->setCustomNavigationRoute(brls::FocusDirection::UP, all_button_);
 }
 
-void LibraryView::BuildFooter()
-{
-    auto* footer = new brls::Box(brls::Axis::ROW);
-    footer->setHeight(46);
-    footer->setShrink(0);
-    footer->setPadding(0, 40, 0, 40);
-    footer->setAlignItems(brls::AlignItems::CENTER);
-    version_label_ = ui::MakeLabel(std::string("LunaNX · ") + kAppVersion, 13, ui::Muted(), ui::FontRole::Medium);
-    version_label_->setWidth(150);
-    version_label_->setShrink(0);
-    footer->addView(version_label_);
-    auto* hints = new brls::Hints();
-    hints->setGrow(1.0f);
-    hints->setAllowAButtonTouch(true);
-    hints->setJustifyContent(brls::JustifyContent::CENTER);
-    footer->addView(hints);
-    auto* balance = new brls::Box();
-    balance->setWidth(150);
-    balance->setShrink(0);
-    footer->addView(balance);
-    addView(footer);
-}
-
 void LibraryView::RefreshTexts()
 {
     language_ = UiLanguage();
     updateActionHint(brls::BUTTON_Y, Tr("Actualiser"));
     updateActionHint(brls::BUTTON_X, Tr("Réglages"));
-    updateActionHint(brls::BUTTON_BACK, Tr("Menu principal"));
+    updateActionHint(brls::BUTTON_BACK, Tr("Quitter"));
     updateActionHint(brls::BUTTON_START, Tr("Quitter"));
     menu_button_->SetTitle(Tr("Menu principal"));
     all_button_->SetTitle(Tr("Tous les jeux"));
@@ -472,7 +439,10 @@ void LibraryView::RefreshTexts()
 brls::View* LibraryView::getDefaultFocus()
 {
     if ((library_panel_->getVisibility() == brls::Visibility::VISIBLE))
-        return carousel_->ItemCount() ? static_cast<brls::View*>(carousel_) : static_cast<brls::View*>(all_button_);
+        return carousel_->ItemCount() ? static_cast<brls::View*>(carousel_)
+            : section_ == Section::Recent ? static_cast<brls::View*>(recent_button_)
+            : section_ == Section::Top ? static_cast<brls::View*>(top_button_)
+                                         : static_cast<brls::View*>(all_button_);
     return first_card_ ? first_card_ : brls::Box::getDefaultFocus();
 }
 
@@ -488,6 +458,22 @@ void LibraryView::draw(NVGcontext* vg, float x, float y, float width, float heig
     }
     backdrop_.Draw(vg, x, y, width, height);
     brls::Box::draw(vg, x, y, width, height, style, ctx);
+    const auto activities = brls::Application::getActivitiesStack();
+    const bool main_activity = !activities.empty() && activities.back()->getContentView() == this;
+    const bool library_visible = library_panel_->getVisibility() == brls::Visibility::VISIBLE ||
+                                 rendered_layout_ == "List";
+    if (main_activity && library_visible && !catalog_.empty())
+    {
+        nvgSave(vg);
+        nvgGlobalAlpha(vg, getAlpha());
+        nvgFontFaceId(vg, ui::Font(ui::FontRole::Body));
+        nvgFontSize(vg, 14);
+        nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_BOTTOM);
+        nvgFillColor(vg, nvgRGB(255, 255, 255));
+        const std::string version = std::string("v") + kAppVersion;
+        nvgText(vg, x + width - 32, y + height - 14, version.c_str(), nullptr);
+        nvgRestore(vg);
+    }
 }
 
 void LibraryView::ShowLibraryPanel(bool visible)
@@ -506,13 +492,11 @@ void LibraryView::UpdateHeaderButtons()
     const auto shown = [](bool visible) { return visible ? brls::Visibility::VISIBLE : brls::Visibility::GONE; };
     all_button_->setVisibility(shown(covers));
     recent_button_->setVisibility(shown(covers));
-    top_button_->setVisibility(shown(covers && !PickTopGames(shelves_).empty()));
-    premium_button_->setVisibility(shown(covers && premium_count_ > 0));
+    top_button_->setVisibility(shown(covers));
     search_button_->setVisibility(shown(covers));
     all_button_->SetActive(section_ == Section::All);
     recent_button_->SetActive(section_ == Section::Recent);
     top_button_->SetActive(section_ == Section::Top);
-    premium_button_->SetActive(section_ == Section::Premium);
     search_button_->SetActive(!search_query_.empty());
     // Abonnement du compte dans la pastille d'état.
     std::string plan;
@@ -522,14 +506,15 @@ void LibraryView::UpdateHeaderButtons()
         plan = plan_label_.empty() ? "Prime" : plan_label_;
     status_pill_->SetPlan(client_ ? plan : std::string(), plan_ == luna::AccountPlan::Premium);
     account_button_->SetBadge(plan_ == luna::AccountPlan::Premium);
+    account_button_->SetImageUrl(client_ ? client_->Profile().avatar_url : std::string());
     // Haut du carrousel : bouton de la rubrique affichée (ou le premier bouton visible).
     brls::View* up = all_button_;
     if (section_ == Section::Recent)
         up = recent_button_;
     else if (section_ == Section::Top && (top_button_->getVisibility() == brls::Visibility::VISIBLE))
         up = top_button_;
-    else if (section_ == Section::Premium && (premium_button_->getVisibility() == brls::Visibility::VISIBLE))
-        up = premium_button_;
+    else if (section_ == Section::Premium)
+        up = menu_button_;
     carousel_->setCustomNavigationRoute(brls::FocusDirection::UP, covers ? up : menu_button_);
 }
 
@@ -551,9 +536,10 @@ void LibraryView::SetStatus(const std::string& text)
 // ---------------------------------------------------------------------------------------------
 // Connexion et messages
 
-brls::Box* LibraryView::ResetScroller()
+brls::Box* LibraryView::ResetScroller(bool cancel_code_sign_in)
 {
-    StopPhoneSignIn();
+    if (cancel_code_sign_in)
+        StopCodeSignIn();
     content_->clearViews();
     first_card_ = nullptr;
     loading_label_ = nullptr;
@@ -598,6 +584,11 @@ void LibraryView::ShowMessage(const std::string& title, const std::string& body)
 
 void LibraryView::ShowSignedOut()
 {
+    ++account_generation_;
+    ++recent_request_generation_;
+    recent_loading_ = recent_loaded_ = false;
+    recent_shelves_.clear();
+    loading_ = false;
     ++explore_generation_;
     exploration_done_ = false;
     client_.reset();
@@ -608,7 +599,8 @@ void LibraryView::ShowSignedOut()
     featured_id_.clear();
     selected_id_.clear();
     search_query_.clear();
-    section_ = Section::All;
+    section_ = Section::Top;
+    startup_selection_pending_ = true;
     page_ = 0;
     premium_count_ = 0;
     plan_ = luna::AccountPlan::Unknown;
@@ -633,7 +625,9 @@ void LibraryView::Reload()
     SetStatus(Tr("Connexion…"));
 
     auto alive = alive_;
-    brls::async([this, alive]() {
+    const auto generation = account_generation_;
+    const bool select_startup = startup_selection_pending_;
+    brls::async([this, alive, generation, select_startup]() {
         luna::CookieJar cookies;
         luna::DeviceRegistration registration;
         const bool registered = luna::AmazonAuth::Load(registration);
@@ -658,14 +652,14 @@ void LibraryView::Reload()
         {
             if (!has_cookies)
                 throw luna::SignInRequired("Aucun fichier de cookies");
-            client->SignIn([this, alive](const std::string& status) {
-                brls::sync([this, alive, status] {
-                    if (*alive)
+            client->SignIn([this, alive, generation](const std::string& status) {
+                brls::sync([this, alive, generation, status] {
+                    if (*alive && generation == account_generation_)
                         SetStatus(status);
                 });
             });
-            brls::sync([this, alive] {
-                if (*alive)
+            brls::sync([this, alive, generation] {
+                if (*alive && generation == account_generation_)
                     SetStatus(Tr("Chargement du catalogue…"));
             });
             // Catalogue dans la langue choisie ; si la boutique ne la propose pas, langue locale.
@@ -693,11 +687,25 @@ void LibraryView::Reload()
             {
                 shelves = client->FetchShelves();
             }
+            // Résoudre l'accueil avant de l'afficher : l'historique peut n'exister que
+            // dans la page bibliothèque. Les actualisations suivantes gardent la rubrique.
+            if (select_startup && luna::RecentGamesForShelves(shelves, {}).empty())
+            {
+                try
+                {
+                    auto recent = client->FetchRecentShelves();
+                    for (auto& shelf : recent)
+                        shelves.push_back(std::move(shelf));
+                }
+                catch (const luna::SignInRequired&) { throw; }
+                catch (const std::exception&)
+                {
+                    LogRuntimeEvent("library", "startup_history_unavailable");
+                }
+            }
         }
         catch (const luna::SignInRequired& ex)
         {
-            if (registered)
-                luna::AmazonAuth::Erase();
             sign_in_reason = has_cookies ? TrFormat("Ta session Amazon a expiré ({}). Reconnecte-toi.", {ex.what()})
                                          : std::string();
             error_title = "sign-in";
@@ -709,8 +717,10 @@ void LibraryView::Reload()
             error_body = TrFormat("{}\n\nVérifie la connexion Internet puis appuie sur Y.", {ex.what()});
         }
 
-        brls::sync([this, alive, client, shelves = std::move(shelves), error_title, error_body, sign_in_reason]() {
+        brls::sync([this, alive, generation, registered, client, shelves = std::move(shelves), error_title, error_body, sign_in_reason]() {
             if (!*alive)
+                return;
+            if (generation != account_generation_)
                 return;
             loading_ = false;
             // Déconnexion demandée pendant ce chargement : son résultat ne doit pas s'afficher.
@@ -721,6 +731,9 @@ void LibraryView::Reload()
             }
             if (error_title == "sign-in")
             {
+                // Un ancien chargement ne doit pas effacer une connexion plus récente.
+                if (registered)
+                    luna::AmazonAuth::Erase();
                 SetStatus("");
                 ShowSignIn(sign_in_reason);
                 return;
@@ -737,6 +750,9 @@ void LibraryView::Reload()
                 ShowMessage(error_title, error_body);
                 return;
             }
+            ++recent_request_generation_;
+            recent_loading_ = recent_loaded_ = false;
+            recent_shelves_.clear();
             client_ = client;
             plan_ = client_->Plan();
             plan_label_ = client_->PlanLabel();
@@ -752,16 +768,9 @@ void LibraryView::ShowStorePicker()
     auto* content = ResetScroller();
     auto* card = ui::MakeCard();
     card->setMarginTop(10);
-    auto* heading = ui::MakeLabel(Tr("Choisis ta boutique Amazon"), 26, ui::Text(), ui::FontRole::Display);
+    auto* heading = ui::MakeLabel(Tr("Choisis ton pays"), 26, ui::Text(), ui::FontRole::Display);
     heading->setMarginBottom(10);
     card->addView(heading);
-    auto* explanation = ui::MakeLabel(Tr("Luna n'est disponible que dans ces pays. LunaNX se connectera à la "
-                                         "boutique choisie et utilisera sa langue (modifiable ensuite dans les "
-                                         "Réglages)."),
-                                      17, ui::Muted());
-    explanation->setMarginBottom(18);
-    card->addView(explanation);
-
     // Boutiques Luna, par ordre alphabétique de leur nom dans leur propre langue.
     std::vector<luna::AmazonMarket> markets = luna::AmazonMarkets();
     // « Österreich » se range avec les O (l'ordre des octets UTF-8 la placerait en dernier).
@@ -776,7 +785,7 @@ void LibraryView::ShowStorePicker()
     const std::string current = LoadStreamSettings().amazon_market;
     for (const auto& market : markets)
     {
-        auto* button = MakeCardButton(market.native_name + "  ·  amazon." + market.domain, market.code == current);
+        auto* button = MakeCardButton(market.native_name, market.code == current);
         button->setMarginBottom(10);
         const std::string code = market.code;
         button->registerClickAction([this, code](brls::View*) {
@@ -832,43 +841,26 @@ void LibraryView::ShowSignIn(const std::string& reason)
         card->addView(warning);
     }
     card->addView(ui::MakeLabel(
-        TrFormat("La page de connexion officielle d'Amazon ({}) va s'ouvrir dans le navigateur de la "
-                 "Switch. Saisis ton e-mail, ton mot de passe et, si besoin, le code de validation reçu.\n"
-                 "Ton mot de passe n'est jamais lu ni enregistré par LunaNX : la console est simplement "
-                 "ajoutée à tes appareils Amazon (« LunaNX »), et tu peux la retirer à tout moment depuis "
-                 "ton compte ou dans les Réglages.\nCompte d'un autre pays ? Change-le dans les Réglages (X).",
-                 {Tr(market.label)}),
+        TrFormat("Connecte-toi sur la page officielle Amazon ({}) avec un code. "
+                 "La Switch se connectera automatiquement après validation. "
+                 "Ton mot de passe reste sur Amazon.\nCompte d'un autre pays ? Change de boutique ci-dessous.",
+                 {market.native_name}),
         17, ui::Muted()));
 
-    auto* button = MakeCardButton(Tr("Se connecter avec Amazon"), true);
+    auto* button = MakeCardButton(Tr("Connexion simplifiée (code Amazon)"), true);
     button->setMarginTop(20);
     button->setMarginBottom(12);
     button->registerClickAction([this](brls::View*) {
-        SignInWithAmazon();
+        auto alive = alive_;
+        brls::sync([this, alive] {
+            if (*alive)
+                SignInWithCode();
+        });
         return true;
     });
     card->addView(button);
 
-    // Alternative sans le navigateur de la Switch (indisponible sur certaines consoles).
-    auto* phone_button = MakeCardButton(Tr("Se connecter avec mon téléphone"), true);
-    phone_button->setMarginBottom(8);
-    phone_button->registerClickAction([this](brls::View*) {
-        auto alive = alive_;
-        brls::sync([this, alive]() {
-            if (*alive)
-                SignInWithPhone();
-        });
-        return true;
-    });
-    card->addView(phone_button);
-    auto* phone_hint = ui::MakeLabel(Tr("Le navigateur de la Switch ne s'ouvre pas ou affiche « This feature is not "
-                                        "available » ? Connecte-toi depuis ton téléphone : scanne un QR code, puis "
-                                        "connecte-toi sur la vraie page Amazon."),
-                                     15, ui::Muted());
-    phone_hint->setMarginBottom(20);
-    card->addView(phone_hint);
-
-    auto* store_button = MakeCardButton(Tr("Changer de boutique") + "  ·  amazon." + market.domain, false);
+    auto* store_button = MakeCardButton(Tr("Changer de pays") + "  ·  " + market.native_name, false);
     store_button->setMarginBottom(20);
     store_button->registerClickAction([this](brls::View*) {
         auto alive = alive_;
@@ -880,62 +872,63 @@ void LibraryView::ShowSignIn(const std::string& reason)
     });
     card->addView(store_button);
 
-    card->addView(ui::MakeLabel(CookieHelpText(), 14, ui::Opacity(ui::Muted(), 0.8f)));
     content->addView(card);
     first_card_ = button;
     brls::Application::giveFocus(button);
 }
 
-void LibraryView::SignInWithAmazon()
+void LibraryView::StopCodeSignIn()
 {
-    if (loading_)
-        return;
-    luna::PendingSignIn pending;
-    std::string final_url;
-    try
-    {
-        pending = luna::AmazonAuth::BeginSignIn(LoadStreamSettings().amazon_market);
-        final_url = OpenAmazonWebSignIn(pending);
-    }
-    catch (const std::exception& ex)
-    {
-        ShowSignIn(ex.what());
-        return;
-    }
-    const std::string code = luna::AmazonAuth::ExtractAuthorizationCode(final_url);
-    if (code.empty())
-    {
-        ShowSignIn(final_url.empty() ? Tr("Connexion annulée.") : Tr("Amazon n'a pas renvoyé de code de connexion."));
-        return;
-    }
-    CompleteSignIn(pending, code);
+    if (code_sign_in_cancel_)
+        code_sign_in_cancel_->store(true);
+    code_sign_in_cancel_.reset();
 }
 
-void LibraryView::CompleteSignIn(const luna::PendingSignIn& pending, const std::string& code)
+void LibraryView::SignInWithCode()
 {
-    loading_ = true;
-    SetStatus(Tr("Enregistrement de la console sur ton compte…"));
-    auto alive = alive_;
-    brls::async([this, alive, pending, code]() {
+    if (loading_ || code_sign_in_cancel_)
+        return;
+    ShowMessage(Tr("Connexion à ton compte Amazon"), Tr("Création du code de connexion…"));
+    const auto cancelled = std::make_shared<std::atomic_bool>(false);
+    code_sign_in_cancel_ = cancelled;
+    const auto alive = alive_;
+    const std::string market = LoadStreamSettings().amazon_market;
+    brls::async([this, alive, cancelled, market] {
+        std::optional<luna::DeviceRegistration> registration;
         std::string error;
         try
         {
-            const auto registration = luna::AmazonAuth::Register(pending, code);
-            if (!luna::AmazonAuth::Save(registration))
-                error = Tr("Impossible d'enregistrer la session sur la carte SD.");
+            registration = luna::AmazonAuth::SignInWithCode(market,
+                [this, alive, cancelled](const luna::DeviceCodeChallenge& challenge) {
+                    brls::sync([this, alive, cancelled, challenge] {
+                        if (*alive && !cancelled->load())
+                            ShowDeviceCode(challenge);
+                    });
+                }, [cancelled] { return cancelled->load(); });
         }
         catch (const std::exception& ex)
         {
             error = ex.what();
         }
-        brls::sync([this, alive, error]() {
-            if (!*alive)
+        brls::sync([this, alive, cancelled, registration, error] {
+            if (!*alive || cancelled->load())
+            {
+                // Validation reçue après Annuler : ne jamais restaurer le compte local.
+                if (registration)
+                    brls::async([registration] {
+                        try { luna::AmazonAuth::Deregister(*registration); } catch (...) {}
+                    });
                 return;
-            loading_ = false;
+            }
+            code_sign_in_cancel_.reset();
             if (!error.empty())
             {
-                SetStatus("");
                 ShowSignIn(error);
+                return;
+            }
+            if (!registration || !luna::AmazonAuth::Save(*registration))
+            {
+                ShowSignIn(Tr("Impossible d'enregistrer la session sur la carte SD."));
                 return;
             }
             Reload();
@@ -943,93 +936,48 @@ void LibraryView::CompleteSignIn(const luna::PendingSignIn& pending, const std::
     });
 }
 
-void LibraryView::StopPhoneSignIn()
+void LibraryView::ShowDeviceCode(const luna::DeviceCodeChallenge& challenge)
 {
-    if (!phone_server_)
-        return;
-    phone_server_->Stop();
-    phone_server_.reset();
-}
-
-void LibraryView::SignInWithPhone()
-{
-    if (loading_)
-        return;
-    StopPhoneSignIn();
-
-    luna::PendingSignIn pending;
-    try
-    {
-        pending = luna::AmazonAuth::BeginSignIn(LoadStreamSettings().amazon_market);
-    }
-    catch (const std::exception& ex)
-    {
-        ShowSignIn(ex.what());
-        return;
-    }
-
-    // Le code arrive sur le fil du serveur : la suite se fait sur le fil de l'interface.
-    auto alive = alive_;
-    auto server = std::make_unique<PhoneSignInServer>(pending, [this, alive, pending](const std::string& code) {
-        brls::sync([this, alive, pending, code]() {
-            if (!*alive)
-                return;
-            ShowMessage(Tr("Connexion à ton compte Amazon"), Tr("Enregistrement de la console sur ton compte…"));
-            CompleteSignIn(pending, code);
-        });
-    });
-    std::string error;
-    if (!server->Start(error))
-    {
-        ShowSignIn(error);
-        return;
-    }
-    const std::string address = server->Address();
-
-    auto* content = ResetScroller();
-    phone_server_ = std::move(server);
-
+    auto* content = ResetScroller(false);
     auto* card = ui::MakeCard();
     card->setMarginTop(10);
-    auto* heading = ui::MakeLabel(Tr("Connexion avec ton téléphone"), 26, ui::Text(), ui::FontRole::Display);
-    heading->setMarginBottom(18);
-    card->addView(heading);
-
+    auto* title = ui::MakeLabel(Tr("Connexion simplifiée (code Amazon)"), 26, ui::Text(), ui::FontRole::Display);
+    title->setMarginBottom(18);
+    card->addView(title);
     auto* row = new brls::Box(brls::Axis::ROW);
     row->setAlignItems(brls::AlignItems::CENTER);
-    auto* qr = new QrCodeView(address, 250);
+    auto* qr = new QrCodeView(challenge.verification_url, 220);
     qr->setMarginRight(32);
     qr->setShrink(0);
     row->addView(qr);
-
     auto* steps = new brls::Box(brls::Axis::COLUMN);
-    steps->setGrow(1.0f);
-    steps->setShrink(1.0f);
-    steps->addView(ui::MakeLabel(
-        TrFormat("1. Connecte ton téléphone au même réseau Wi-Fi que la Switch.\n"
-                 "2. Scanne ce QR code avec l'appareil photo, ou ouvre cette adresse :\n{}\n"
-                 "3. Touche « Ouvrir la page de connexion Amazon » et connecte-toi.\n"
-                 "4. Copie l'adresse de la dernière page affichée, reviens sur la page LunaNX et colle-la.",
-                 {address}),
-        18, ui::Text()));
-    auto* waiting = ui::MakeLabel(Tr("En attente de ton téléphone…"), 17, ui::Accent(), ui::FontRole::Heading);
-    waiting->setMarginTop(18);
-    steps->addView(waiting);
+    steps->setGrow(1);
+    steps->setShrink(1);
+    steps->addView(ui::MakeLabel(TrFormat(
+        "1. Scanne le QR code ou ouvre {} sur ton téléphone ou ton PC.\n"
+        "2. Connecte-toi à Amazon et saisis ce code :", {challenge.verification_url}), 18, ui::Text()));
+    auto* code = ui::MakeLabel(challenge.user_code, 46, ui::Accent(), ui::FontRole::Display);
+    code->setMargins(12, 0, 12, 0);
+    steps->addView(code);
+    steps->addView(ui::MakeLabel(Tr("La Switch se connecte automatiquement après validation."), 17,
+                                 ui::Text(), ui::FontRole::Heading));
+    auto* expiry = ui::MakeLabel(TrFormat("Code valable {} minutes.",
+        {std::to_string(std::max(1, challenge.expires_in_seconds / 60))}), 15, ui::Muted());
+    expiry->setMarginTop(10);
+    steps->addView(expiry);
     row->addView(steps);
     card->addView(row);
-
     auto* cancel = MakeCardButton(Tr("Annuler"), false);
-    cancel->setMarginTop(24);
+    cancel->setMarginTop(22);
     cancel->registerClickAction([this](brls::View*) {
         auto alive = alive_;
-        brls::sync([this, alive]() {
+        brls::sync([this, alive] {
             if (*alive)
-                ShowSignIn("");
+                ShowSignIn({});
         });
         return true;
     });
     card->addView(cancel);
-
     content->addView(card);
     first_card_ = cancel;
     brls::Application::giveFocus(cancel);
@@ -1067,12 +1015,20 @@ void LibraryView::ShowCatalog(const std::vector<luna::Shelf>& shelves)
                                                                            : "unknown"));
 
     rendered_layout_ = LoadStreamSettings().library_layout;
+    if (startup_selection_pending_)
+    {
+        section_ = luna::RecentGamesForShelves(shelves_, luna::LoadRecentGames(), catalog_).empty()
+            ? Section::Top : Section::Recent;
+        startup_selection_pending_ = false;
+        page_ = 0;
+        selected_id_.clear();
+        search_query_.clear();
+    }
     if (rendered_layout_ == "List")
     {
         ShowGameList();
         return;
     }
-    StopPhoneSignIn();
     if (section_ == Section::Premium && premium_count_ == 0)
         section_ = Section::All;
     ShowLibraryPanel(true);
@@ -1153,8 +1109,8 @@ void LibraryView::RebuildSectionGames()
                 section_games_.push_back(Fresh(game, catalog_, catalog_index_));
             break;
         case Section::Recent:
-            for (const auto& game : PickRecentGames(shelves_))
-                section_games_.push_back(Fresh(game, catalog_, catalog_index_));
+            section_games_ = luna::RecentGamesForShelves(recent_loaded_ ? recent_shelves_ : shelves_,
+                                                         luna::LoadRecentGames(), catalog_);
             break;
     }
     if (!search_query_.empty())
@@ -1166,6 +1122,51 @@ void LibraryView::RebuildSectionGames()
                                             }),
                              section_games_.end());
     }
+}
+
+void LibraryView::RefreshRecentGames()
+{
+    if (!client_ || loading_ || recent_loading_)
+        return;
+    recent_loading_ = true;
+    const auto request = ++recent_request_generation_;
+    const auto generation = account_generation_;
+    const auto client = client_;
+    const auto alive = alive_;
+    SetStatus(Tr("Chargement du catalogue…"));
+    if (section_ == Section::Recent && section_games_.empty() && search_query_.empty())
+        empty_label_->setText(Tr("Chargement du catalogue…"));
+    brls::async([this, alive, client, request, generation] {
+        std::vector<luna::Shelf> shelves;
+        bool failed = false;
+        try { shelves = client->FetchRecentShelves(); }
+        catch (const std::exception&)
+        {
+            failed = true;
+            LogRuntimeEvent("library", "recent_load_failed");
+        }
+        brls::sync([this, alive, client, request, generation, failed, shelves = std::move(shelves)]() mutable {
+            if (!*alive || client_ != client || generation != account_generation_ ||
+                request != recent_request_generation_)
+                return;
+            recent_loading_ = false;
+            SetStatus({});
+            if (failed)
+            {
+                brls::Application::notify(Tr("Impossible de charger Luna"));
+                if (section_ == Section::Recent && section_games_.empty())
+                    empty_label_->setText(Tr("Impossible de charger Luna"));
+                return;
+            }
+            recent_shelves_ = std::move(shelves);
+            recent_loaded_ = true;
+            if (section_ == Section::Recent && library_panel_->getVisibility() == brls::Visibility::VISIBLE)
+            {
+                RebuildSectionGames();
+                RefreshCarousel(true);
+            }
+        });
+    });
 }
 
 void LibraryView::RefreshCarousel(bool keep_selection)
@@ -1181,15 +1182,21 @@ void LibraryView::RefreshCarousel(bool keep_selection)
         CarouselItem item;
         item.id = GameId(game);
         item.title = game.title;
-        item.image_url = !game.image_portrait.empty() ? game.image_portrait : game.image_landscape;
+        const auto artwork = Fresh(game, catalog_, catalog_index_);
+        item.image_url = !game.image_portrait.empty() ? game.image_portrait
+                         : !artwork.image_portrait.empty() ? artwork.image_portrait : game.image_landscape;
         item.rank = section_ == Section::Top && search_query_.empty() ? static_cast<int>(i + 1) : 0;
         item.premium = game.premium_only;
         item.locked = IsLocked(game);
         items.push_back(std::move(item));
     }
     const bool empty = items.empty();
-    if (empty && brls::Application::getCurrentFocus() == carousel_)
-        brls::Application::giveFocus((all_button_->getVisibility() == brls::Visibility::VISIBLE) ? all_button_ : menu_button_);
+    if (empty)
+    {
+        // Sortir le focus des vues que l'on va masquer, avant de changer le layout.
+        brls::Application::giveFocus(section_ == Section::Recent ? recent_button_
+                                     : section_ == Section::Top ? top_button_ : all_button_);
+    }
     carousel_->setVisibility(empty ? brls::Visibility::GONE : brls::Visibility::VISIBLE);
     info_->setVisibility(empty ? brls::Visibility::GONE : brls::Visibility::VISIBLE);
     empty_label_->setVisibility(empty ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
@@ -1226,12 +1233,20 @@ void LibraryView::UpdateSectionHeader()
         subtitle += "  ·  " + TrFormat("Recherche : « {} »", {search_query_});
     section_subtitle_->setText(subtitle);
     const size_t pages = std::max<size_t>(1, (section_games_.size() + kCarouselPageSize - 1) / kCarouselPageSize);
-    page_label_->setText(pages > 1 ? TrFormat("Page {} / {}", {std::to_string(page_ + 1), std::to_string(pages)}) +
-                                         "   ·   L / R"
-                                   : std::string());
+    page_label_->setText(pages > 1 ? TrFormat("Page {} / {}", {std::to_string(page_ + 1), std::to_string(pages)})
+                                  : std::string());
 }
 
 void LibraryView::SelectSection(Section section)
+{
+    auto alive = alive_;
+    brls::sync([this, alive, section] {
+        if (*alive)
+            ApplySection(section);
+    });
+}
+
+void LibraryView::ApplySection(Section section)
 {
     if (catalog_.empty() || rendered_layout_ == "List")
         return;
@@ -1247,19 +1262,19 @@ void LibraryView::SelectSection(Section section)
     }
     RebuildSectionGames();
     RefreshCarousel(!changed);
-    if (carousel_->ItemCount())
-        brls::Application::giveFocus(carousel_);
+    brls::Application::giveFocus(carousel_->ItemCount() ? static_cast<brls::View*>(carousel_)
+        : section_ == Section::Recent ? static_cast<brls::View*>(recent_button_)
+        : section_ == Section::Top ? static_cast<brls::View*>(top_button_)
+                                     : static_cast<brls::View*>(all_button_));
+    if (section_ == Section::Recent)
+        RefreshRecentGames();
 }
 
 void LibraryView::CycleSection(int delta)
 {
     if (catalog_.empty() || rendered_layout_ == "List" || !(library_panel_->getVisibility() == brls::Visibility::VISIBLE))
         return;
-    std::vector<Section> order {Section::All, Section::Recent};
-    if ((top_button_->getVisibility() == brls::Visibility::VISIBLE))
-        order.push_back(Section::Top);
-    if (premium_count_ > 0)
-        order.push_back(Section::Premium);
+    const std::vector<Section> order {Section::Top, Section::Recent, Section::All};
     auto current = std::find(order.begin(), order.end(), section_);
     const long index = current == order.end() ? 0 : static_cast<long>(current - order.begin());
     const long size = static_cast<long>(order.size());
@@ -1377,29 +1392,26 @@ void LibraryView::ShowMainMenu()
     std::vector<std::function<void()>> actions;
     if (!catalog_.empty() && rendered_layout_ != "List")
     {
-        labels.push_back(Tr("Tous les jeux"));
-        actions.push_back([this] { SelectSection(Section::All); });
+        labels.push_back("Top 10");
+        actions.push_back([this] { SelectSection(Section::Top); });
         labels.push_back(Tr("Reprendre"));
         actions.push_back([this] { SelectSection(Section::Recent); });
-        if ((top_button_->getVisibility() == brls::Visibility::VISIBLE))
-        {
-            labels.push_back("Top 10");
-            actions.push_back([this] { SelectSection(Section::Top); });
-        }
+        labels.push_back(Tr("Tous les jeux"));
+        actions.push_back([this] { SelectSection(Section::All); });
+        labels.push_back(Tr("Rechercher"));
+        actions.push_back([this] { BeginSearch(); });
         if (premium_count_ > 0)
         {
             labels.push_back("Luna Premium");
             actions.push_back([this] { SelectSection(Section::Premium); });
         }
-        labels.push_back(Tr("Rechercher"));
-        actions.push_back([this] { BeginSearch(); });
     }
     labels.push_back(Tr("Actualiser"));
     actions.push_back([this] { Reload(); });
     labels.push_back(Tr("Compte"));
     actions.push_back([this] { ShowAccount(); });
     labels.push_back(Tr("Réglages"));
-    actions.push_back([] { brls::Application::pushActivity(new brls::Activity(new SettingsView())); });
+    actions.push_back([this] { OpenSettings(); });
     labels.push_back(Tr("Quitter"));
     actions.push_back([] { brls::Application::quit(); });
 
@@ -1418,10 +1430,31 @@ void LibraryView::ShowMainMenu()
     brls::Application::pushActivity(new brls::Activity(dropdown));
 }
 
+void LibraryView::OpenSettings()
+{
+    auto alive = alive_;
+    brls::Application::pushActivity(new brls::Activity(new SettingsView([this, alive] {
+        if (*alive)
+            ShowSignedOut();
+    })));
+}
+
 void LibraryView::ShowAccount()
 {
+    if (!client_)
+    {
+        auto alive = alive_;
+        brls::sync([this, alive] {
+            if (*alive)
+                ShowSignIn({});
+        });
+        return;
+    }
     const std::string market_code = LoadStreamSettings().amazon_market;
     std::string text = Tr("Ton compte");
+    const auto profile = client_->Profile();
+    if (!profile.name.empty())
+        text += "\n" + profile.name;
     if (!market_code.empty())
         text += "\n\n" + TrFormat("Boutique : {}", {"amazon." + luna::FindAmazonMarket(market_code).domain});
     if (!client_)
@@ -1440,8 +1473,12 @@ void LibraryView::ShowAccount()
     }
     auto* dialog = new brls::Dialog(text);
     dialog->addButton(Tr("Fermer"), [] {});
-    dialog->addButton(Tr("Réglages"), [] {
-        brls::sync([] { brls::Application::pushActivity(new brls::Activity(new SettingsView())); });
+    auto alive = alive_;
+    dialog->addButton(Tr("Réglages"), [this, alive] {
+        brls::sync([this, alive] {
+            if (*alive)
+                OpenSettings();
+        });
     });
     dialog->setCancelable(true);
     dialog->open();
@@ -1513,11 +1550,20 @@ void LibraryView::AddDiscoveredGames(std::vector<luna::Game> games)
     // Gardés avec le catalogue : ils réapparaissent si l'écran est redessiné.
     shelves_.push_back(luna::Shelf {"", "EXPLORED", games});
     std::vector<luna::Game> shown;
+    bool artwork_changed = false;
     for (const auto& game : games)
-        if (AddToCatalog(catalog_, catalog_index_, game))
+        if (AddToCatalog(catalog_, catalog_index_, game, &artwork_changed))
             shown.push_back(game);
     if (shown.empty())
+    {
+        if (artwork_changed && rendered_layout_ != "List" &&
+            library_panel_->getVisibility() == brls::Visibility::VISIBLE)
+        {
+            RebuildSectionGames();
+            RefreshCarousel(true);
+        }
         return;
+    }
     premium_count_ = static_cast<size_t>(std::count_if(catalog_.begin(), catalog_.end(),
                                                        [](const luna::Game& game) { return game.premium_only; }));
     if (rendered_layout_ == "List")
@@ -1536,6 +1582,11 @@ void LibraryView::AddDiscoveredGames(std::vector<luna::Game> games)
         return;
     if (section_ != Section::All && section_ != Section::Premium)
     {
+        if (section_ == Section::Recent)
+        {
+            RebuildSectionGames();
+            RefreshCarousel(true);
+        }
         UpdateHeaderButtons();
         return;
     }
@@ -1544,7 +1595,7 @@ void LibraryView::AddDiscoveredGames(std::vector<luna::Game> games)
     const bool page_was_full = (page_ + 1) * kCarouselPageSize <= section_games_.size();
     RebuildSectionGames();
     const size_t new_pages = (section_games_.size() + kCarouselPageSize - 1) / kCarouselPageSize;
-    if (!page_was_full || old_pages != new_pages)
+    if (!page_was_full || old_pages != new_pages || artwork_changed)
         RefreshCarousel(true);
     else
     {
@@ -1587,6 +1638,8 @@ void LibraryView::OnResume()
         if (!*alive || loading_)
             return;
         ShowCatalog(shelves_);
+        if (section_ == Section::Recent)
+            RefreshRecentGames();
         // Exploration interrompue par une partie : elle reprend (les jeux déjà trouvés restent).
         if (!exploration_done_)
             StartCatalogExploration();
@@ -1600,6 +1653,7 @@ void LibraryView::Launch(const luna::Game& game)
     LogRuntimeEvent("library", "launch", game.title + (game.premium_only ? " (premium)" : ""));
     // Pas d'exploration du catalogue pendant une partie : elle reprendra au retour.
     ++explore_generation_;
+    // Même moment d'enregistrement que dans la version GitHub : dès le lancement.
     luna::RecordRecentGame(game);
     recent_changed_ = true;
     brls::Application::pushActivity(new brls::Activity(new StreamView(client_, game)),

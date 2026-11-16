@@ -1,3 +1,6 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=4d4cf555eea6596b9af7
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+
 #pragma once
 
 #include <set>
@@ -43,6 +46,12 @@ enum class AccountPlan
     Premium,    // Luna Premium (anciennement Luna+) : tout le catalogue
 };
 
+struct PlayerProfile
+{
+    std::string name;
+    std::string avatar_url;
+};
+
 // Deux tuiles désignent le même jeu si leur ASIN ou leur titre normalisé (sans casse,
 // ponctuation ni symboles ™ ®) sont identiques.
 std::string NormalizedGameTitle(const std::string& title);
@@ -54,6 +63,8 @@ struct Shelf
     std::string title;
     std::string row_type;        // type de rangée Luna (« RANKINGS_ROW » = classement)
     std::vector<Game> games;
+    // Métadonnées Luna indépendantes de la langue (sous-type, icône ou tuiles récentes).
+    bool recently_played = false;
 };
 
 struct Region

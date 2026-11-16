@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=fec918ce70e83a8d46cc
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(ufec918ce70e83a8d46cc, "fec918ce70e83a8d46cc")
+
 #include "luna_input_encoder.hpp"
 
 #include "luna_proto.hpp"

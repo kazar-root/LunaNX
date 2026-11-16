@@ -1,3 +1,8 @@
+// LunaNX-Origin: KazaR-RooT | urn:uuid:57e9877e-564c-4275-ae2a-a70f276bfbed | unit=4354a4d86b2d7393e3db
+// Project origin: https://github.com/kazar-root/LunaNX (third-party notices remain applicable).
+#include "core/source_origin.hpp"
+LUNANX_SOURCE_ORIGIN(u4354a4d86b2d7393e3db, "4354a4d86b2d7393e3db")
+
 // LunaNX — client Amazon Luna non officiel pour Nintendo Switch.
 // Copyright (C) 2026 KazaR-RooT — licence GPL-3.0 (voir LICENSE).
 
@@ -18,6 +23,7 @@
 #include "core/i18n.hpp"
 #include "core/stream_settings.hpp"
 #include "core/runtime_journal.hpp"
+#include "core/provenance.hpp"
 #include "ui/cover_image_cache.hpp"
 #include "ui/library_view.hpp"
 #include "ui/theme.hpp"
@@ -28,6 +34,7 @@ int main(int argc, char* argv[])
     (void)argv;
     lunanx::PrepareAppStorage();
     lunanx::InitializeRuntimeJournal(lunanx::kAppVersion);
+    lunanx::LogRuntimeEvent("app", "provenance", lunanx::BuildProvenanceSummary());
 #ifdef __SWITCH__
     appletSetWirelessPriorityMode(AppletWirelessPriorityMode_OptimizedForWlan);
 #endif
