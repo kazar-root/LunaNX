@@ -20,6 +20,7 @@
 #include "core/runtime_journal.hpp"
 #include "ui/cover_image_cache.hpp"
 #include "ui/library_view.hpp"
+#include "ui/theme.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -44,6 +45,8 @@ int main(int argc, char* argv[])
             throw std::runtime_error("brls::Application::init");
 
         brls::Application::createWindow("LunaNX");
+        // Polices Nunito et palette LunaNX (après la fenêtre : il faut le contexte NanoVG).
+        lunanx::ui::InitializeTheme();
         // Plus sert de bouton Start en jeu : on désactive la sortie globale de Borealis.
         brls::Application::setGlobalQuit(false);
         brls::Application::setFPSStatus(false);

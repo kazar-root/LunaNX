@@ -30,6 +30,7 @@ license and copyright notices; the full license texts are in the [licenses/](lic
 | bzip2 | Compression | bzip2 license | [bzip2.txt](licenses/bzip2.txt) |
 | QR Code generator (Project Nayuki) | QR code of the phone sign-in screen | MIT | [qrcodegen-MIT.txt](licenses/qrcodegen-MIT.txt) |
 | Material Icons (Google) | Icons | Apache-2.0 | [MaterialIcons-Apache-2.0.txt](licenses/MaterialIcons-Apache-2.0.txt) |
+| Nunito (The Nunito Project Authors) | Interface font (Medium, SemiBold, Bold, ExtraBold) | SIL OFL 1.1 | [Nunito-OFL-1.1.txt](licenses/Nunito-OFL-1.1.txt) |
 
 Because the binary includes GPL-licensed code (FFmpeg built with `--enable-gpl` and code derived
 from Moonlight-Switch), LunaNX as a whole is distributed under the GNU GPL v3.0 (see

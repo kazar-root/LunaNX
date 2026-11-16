@@ -1,5 +1,7 @@
 #pragma once
 
+#include "console_widgets.hpp"
+#include "game_carousel.hpp"
 #include "luna/luna_client.hpp"
 
 #include <borealis.hpp>
@@ -13,7 +15,10 @@ namespace lunanx
 
 class PhoneSignInServer;
 
-// Écran principal : connexion au compte, puis bibliothèque Luna (jaquettes ou liste).
+// Écran principal : connexion au compte, puis jeux Luna présentés en carrousel sur le visuel
+// du jeu sélectionné (même présentation que NxNow). Les jeux affichés sont ceux de
+// l'abonnement du compte ; les jeux Luna Premium sont regroupés à part quand le compte
+// ne l'a pas.
 class LibraryView : public brls::Box
 {
   public:
@@ -21,73 +26,127 @@ class LibraryView : public brls::Box
     ~LibraryView() override;
 
     brls::View* getDefaultFocus() override;
+    void draw(NVGcontext* vg, float x, float y, float width, float height, brls::Style style,
+              brls::FrameContext* ctx) override;
     // Retour sur l'écran (fin de partie, réglages) : met à jour « Reprendre » et l'affichage.
     void OnResume();
 
   private:
+    enum class Section
+    {
+        All,
+        Recent,
+        Top,
+        Premium,
+    };
+
+    // En-tête, pied de page et zones de contenu.
+    void BuildHeader();
+    void BuildLibraryPanel();
+    void BuildFooter();
+    void RefreshTexts();
+    void ShowLibraryPanel(bool visible);
+    void SetStatus(const std::string& text);
+    void ResetBackdrop();
+
+    // Connexion et chargement.
     void Reload();
+    void ShowLoading(const std::string& text);
     void ShowMessage(const std::string& title, const std::string& body);
     void ShowSignIn(const std::string& reason);
-    // Compte supprimé depuis les réglages : oublie la session et le catalogue affichés.
     void ShowSignedOut();
     void ShowStorePicker();
     void ChooseStore(const std::string& market_code);
-    void RefreshHeaderLanguage();
     void SignInWithAmazon();
-    // Connexion depuis un téléphone (QR code) : n'utilise pas le navigateur de la Switch.
     void SignInWithPhone();
     void StopPhoneSignIn();
-    // Échange le code d'autorisation contre un enregistrement d'appareil, puis recharge.
     void CompleteSignIn(const luna::PendingSignIn& pending, const std::string& code);
-    void ShowShelves(const std::vector<luna::Shelf>& shelves);
-    void ShowGameList(const std::vector<luna::Game>& games);
-    void ShowCovers(const std::vector<luna::Shelf>& shelves, const std::vector<luna::Game>& games);
-    void AddRow(const std::string& title, const std::string& subtitle,
-                const std::vector<luna::Game>& games, bool ranked);
+    brls::Box* ResetScroller();
+
+    // Bibliothèque.
+    void ShowCatalog(const std::vector<luna::Shelf>& shelves);
+    void ShowGameList();
     void AddListCell(const luna::Game& game);
-    void ShowGridPage(size_t page, bool focus_first_card);
-    void AppendToGridPage();
-    void UpdatePager();
-    void UpdateGameCount();
+    void SelectSection(Section section);
+    void RebuildSectionGames();
+    void RefreshCarousel(bool keep_selection);
+    void ChangePage(int delta);
+    void CycleSection(int delta);
+    void SelectGame(const std::string& id);
+    void UpdateSectionHeader();
+    void UpdateHeaderButtons();
+    void BeginSearch();
+    void ClearSearch();
+    void ShowMainMenu();
+    void ShowAccount();
+    void PlaySelected();
+    const luna::Game* FindSectionGame(const std::string& id) const;
+    bool IsLocked(const luna::Game& game) const;
     void StartCatalogExploration();
     void AddDiscoveredGames(std::vector<luna::Game> games);
     void Launch(const luna::Game& game);
 
+    // En-tête.
+    ui::ConsoleButton* menu_button_ = nullptr;
+    ui::ConsoleButton* all_button_ = nullptr;
+    ui::ConsoleButton* recent_button_ = nullptr;
+    ui::ConsoleButton* top_button_ = nullptr;
+    ui::ConsoleButton* premium_button_ = nullptr;
+    ui::ConsoleButton* search_button_ = nullptr;
+    ui::ConsoleButton* account_button_ = nullptr;
+    ui::ConsoleButton* settings_button_ = nullptr;
+    ui::StatusPill* status_pill_ = nullptr;
+
+    // Bibliothèque en carrousel.
+    brls::Box* library_panel_ = nullptr;
+    brls::Label* section_title_ = nullptr;
+    brls::Label* section_subtitle_ = nullptr;
     brls::Label* status_label_ = nullptr;
-    brls::Button* refresh_button_ = nullptr;
-    brls::Button* settings_button_ = nullptr;
-    std::string language_;
+    GameCarouselView* carousel_ = nullptr;
+    brls::Box* info_ = nullptr;
+    brls::Label* game_title_ = nullptr;
+    brls::Label* game_meta_ = nullptr;
+    brls::Label* game_offer_ = nullptr;
+    ui::ConsoleButton* play_button_ = nullptr;
+    brls::Label* page_label_ = nullptr;
+    brls::Label* empty_label_ = nullptr;
+    brls::Label* version_label_ = nullptr;
+
+    // Écrans de connexion, messages et liste simple.
     brls::ScrollingFrame* scroller_ = nullptr;
     brls::Box* content_ = nullptr;
+    brls::Label* loading_label_ = nullptr;
     brls::View* first_card_ = nullptr;
+
+    ui::DynamicBackdrop backdrop_;
+    std::string backdrop_url_;
+    int64_t backdrop_requested_at_ = 0;
+    bool backdrop_pending_ = false;
+    std::string language_;
     std::shared_ptr<luna::LunaClient> client_;
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
     bool loading_ = false;
-    // Serveur local de la connexion par téléphone, actif seulement sur son écran.
     std::unique_ptr<PhoneSignInServer> phone_server_;
 
-    // Catalogue affiché, gardé pour redessiner sans retélécharger.
+    // Catalogue : tous les jeux connus, sans doublon (ASIN ou titre normalisé).
     std::vector<luna::Shelf> shelves_;
-    std::string rendered_layout_;
-    bool recent_changed_ = false;
-    // Tous les jeux connus, sans doublon, et leurs clés ASIN / titre normalisé.
     std::vector<luna::Game> catalog_;
     std::map<std::string, size_t> catalog_index_;
-    // Jeux de « Tous les jeux » (grille ou liste).
-    std::vector<luna::Game> grid_games_;
-    // Grille « Tous les jeux » paginée : seules les 10 jaquettes de la page existent, pour
-    // borner la mémoire des textures quel que soit le nombre de jeux.
-    size_t grid_page_ = 0;
-    size_t grid_shown_end_ = 0;
-    brls::Box* grid_ = nullptr;
-    brls::Box* grid_page_box_ = nullptr;
-    brls::Box* grid_row_ = nullptr;
-    brls::Box* pager_ = nullptr;
-    brls::Button* prev_button_ = nullptr;
-    brls::Button* next_button_ = nullptr;
-    brls::Label* page_label_ = nullptr;
-    brls::Label* all_games_count_ = nullptr;
-    // Exploration du catalogue en arrière-plan ; un nouveau chargement annule la précédente.
+    std::string featured_id_;
+    std::string rendered_layout_;
+    bool recent_changed_ = false;
+    luna::AccountPlan plan_ = luna::AccountPlan::Unknown;
+    std::string plan_label_;
+
+    // Rubrique affichée.
+    Section section_ = Section::All;
+    std::vector<luna::Game> section_games_;
+    size_t page_ = 0;
+    std::string selected_id_;
+    std::string search_query_;
+    size_t premium_count_ = 0;
+    brls::Label* list_heading_ = nullptr;
+
     std::atomic<uint64_t> explore_generation_ {0};
     bool exploration_done_ = false;
 };

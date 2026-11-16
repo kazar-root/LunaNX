@@ -1,5 +1,6 @@
 #include "luna_client.hpp"
 
+#include "entitlement_policy.hpp"
 #include "core/app_paths.hpp"
 #include "core/i18n.hpp"
 #include "core/runtime_journal.hpp"
@@ -212,6 +213,16 @@ Game ExtractGame(json_t* widget)
     game.image_portrait = FirstStr(data, {"imagePortrait", "tileImagePortrait", "focusedImagePortrait",
                                           "productBackgroundPortrait", "imageUrl", "image"});
     game.publisher = FirstStr(hover, {"publishersText"});
+    if (game.publisher.empty())
+        game.publisher = FirstStr(data, {"publishersText"});
+    game.offer_tag = FirstStr(data, {"upTopTag", "badgeText", "tagText", "entitlementText",
+                                     "subscriptionText", "offerText", "channelText"});
+    if (game.offer_tag.empty())
+        game.offer_tag = FirstStr(hover, {"upTopTag", "badgeText", "entitlementText"});
+    game.offer_icon = FirstStr(data, {"upTopTagIcon", "badgeIcon", "badgeImageUrl", "entitlementIcon",
+                                      "channelLogo"});
+    if (game.offer_icon.empty())
+        game.offer_icon = FirstStr(hover, {"upTopTagIcon", "badgeIcon"});
     game.detail_service_token = FirstActionToken(widget);
     game.play_service_token = Str(hover, "primaryButtonServiceToken");
 
@@ -233,7 +244,18 @@ Game ExtractGame(json_t* widget)
             any_art = value;
         if (game.title.empty() && (k == "title" || k == "productTitle" || k == "gameTitle"))
             game.title = value;
+        // Étiquettes d'offre, quel que soit leur emplacement (jamais le titre ni la description :
+        // « Premium Edition » y désigne une édition du jeu, pas l'abonnement).
+        const std::string lower_key = LowercaseAscii(k);
+        if (!game.premium_only && lower_key.find("title") == std::string::npos &&
+            lower_key.find("description") == std::string::npos &&
+            (lower_key.find("tag") != std::string::npos || lower_key.find("badge") != std::string::npos ||
+             lower_key.find("entitle") != std::string::npos || lower_key.find("subscri") != std::string::npos ||
+             lower_key.find("offer") != std::string::npos || lower_key.find("channel") != std::string::npos) &&
+            IsPremiumMarker(value))
+            game.premium_only = true;
     });
+    game.premium_only = game.premium_only || IsPremiumMarker(game.offer_tag) || IsPremiumMarker(game.offer_icon);
     if (game.image_landscape.empty() && game.image_portrait.empty())
         game.image_landscape = any_art;
     if (game.asin.empty())
@@ -333,6 +355,20 @@ void ParseGameDetail(json_t* page, Game& game)
             game.publisher = Str(data, "publishersText");
             game.developer = Str(data, "developersText");
             game.age_rating = Str(json_object_get(data, "ageRating"), "categoryText");
+            if (game.offer_tag.empty())
+                game.offer_tag = Str(data, "upTopTag");
+            if (game.offer_icon.empty())
+                game.offer_icon = Str(data, "upTopTagIcon");
+            game.premium_only = game.premium_only || IsPremiumMarker(game.offer_tag) ||
+                                IsPremiumMarker(game.offer_icon);
+            if (game.genres.empty())
+            {
+                size_t genre_index = 0;
+                json_t* genre = nullptr;
+                json_array_foreach(json_object_get(data, "genreTags"), genre_index, genre)
+                    if (json_is_string(genre))
+                        game.genres.push_back(json_string_value(genre));
+            }
             if (game.image_landscape.empty())
                 game.image_landscape = FirstStr(data, {"tileImageLandscape", "backgroundImageLandscape"});
             if (game.image_portrait.empty())
@@ -913,8 +949,13 @@ std::vector<Shelf> LunaClient::FetchShelves() const
 
     std::vector<std::pair<std::string, std::string>> tabs;
     std::set<std::string> tab_tokens;
+    std::string plan_status;
     Walk(navigation.get(), [&](json_t* node) {
         const std::string type = Str(node, "type");
+        // Menu du joueur : statut de l'abonnement Luna du compte.
+        if (type == "NAV_ITEM_DROPDOWN_PLAYER" && plan_status.empty())
+            plan_status = FirstStr(json_object_get(node, "presentationData"),
+                                   {"customerPlanStatus", "planStatus", "subscriptionStatus"});
         if (type != "NAV_ITEM" && type != "NAV_SECONDARY_ITEM")
             return;
         const std::string label = FirstStr(json_object_get(node, "presentationData"), {"text", "title", "ariaLabel"});
@@ -998,15 +1039,45 @@ std::vector<Shelf> LunaClient::FetchShelves() const
                                  [](const Shelf& sh) { return sh.games.empty(); }),
                   shelves.end());
 
+    size_t premium_games = 0;
+    std::set<std::string> offer_tags;
+    for (const auto& shelf : shelves)
+        for (const auto& game : shelf.games)
+        {
+            premium_games += game.premium_only ? 1 : 0;
+            if (!game.offer_tag.empty() && offer_tags.size() < 8)
+                offer_tags.insert(game.offer_tag);
+        }
     {
         std::lock_guard<std::mutex> lock(catalog_links_mutex_);
         catalog_links_ = links;
+        plan_label_ = plan_status;
+        plan_ = PlanFromStatus(plan_status);
     }
+    std::string tag_list;
+    for (const auto& tag : offer_tags)
+        tag_list += (tag_list.empty() ? "" : " | ") + tag;
+    LogRuntimeEvent("luna", "plan",
+                    "status=" + (plan_status.empty() ? std::string("-") : plan_status) +
+                        " premiumGames=" + std::to_string(premium_games) +
+                        " tags=" + (tag_list.empty() ? std::string("-") : tag_list));
     LogRuntimeEvent("luna", "catalog", "tabs=" + std::to_string(tabs.size()) +
                     " shelves=" + std::to_string(shelves.size()) + " games=" + std::to_string(total) +
                     " detailFetches=" + std::to_string(pending.size()) +
                     " links=" + std::to_string(links.size()));
     return shelves;
+}
+
+AccountPlan LunaClient::Plan() const
+{
+    std::lock_guard<std::mutex> lock(catalog_links_mutex_);
+    return plan_;
+}
+
+std::string LunaClient::PlanLabel() const
+{
+    std::lock_guard<std::mutex> lock(catalog_links_mutex_);
+    return plan_label_;
 }
 
 void LunaClient::ExploreCatalog(std::set<std::string> known,

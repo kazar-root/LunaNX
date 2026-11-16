@@ -98,7 +98,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     z bz2)
 
 set(PROJECT_AUTHOR "KazaR-RooT")
-set(PROJECT_VERSION_STRING "2.0.2")
+set(PROJECT_VERSION_STRING "2.1.0")
 set(PROJECT_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon/icon.jpg)
 set(PROJECT_ROMFS_DIR ${CMAKE_BINARY_DIR}/romfs)
 
@@ -111,6 +111,7 @@ add_custom_target(${PROJECT_NAME}.nro
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources/i18n ${PROJECT_ROMFS_DIR}/i18n
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources/icon ${PROJECT_ROMFS_DIR}/icon
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources/img ${PROJECT_ROMFS_DIR}/img
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources/font ${PROJECT_ROMFS_DIR}/font
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR}/resources/material ${PROJECT_ROMFS_DIR}/material
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHADER_OUT} ${PROJECT_ROMFS_DIR}/shaders
     COMMAND ${NX_ELF2NRO_EXE} ${PROJECT_NAME}.elf ${PROJECT_NAME}.nro

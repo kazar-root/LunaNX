@@ -46,6 +46,10 @@ class LunaClient
     bool SetContentLanguage(const std::string& language);
     bool SignedIn() const { return !account_.access_token.empty(); }
     const Account& account() const { return account_; }
+    // Abonnement Luna du compte, connu après FetchShelves (menu du joueur).
+    AccountPlan Plan() const;
+    // Statut tel que Luna l'affiche (ex. « Luna Premium »), vide s'il est inconnu.
+    std::string PlanLabel() const;
 
     // Rayons de la page d'accueil et des onglets de navigation.
     std::vector<Shelf> FetchShelves() const;
@@ -86,6 +90,9 @@ class LunaClient
     // Liens de navigation repérés par FetchShelves, point de départ de ExploreCatalog.
     mutable std::mutex catalog_links_mutex_;
     mutable std::vector<std::string> catalog_links_;
+    // Abonnement lu par FetchShelves (protégé par catalog_links_mutex_).
+    mutable std::string plan_label_;
+    mutable AccountPlan plan_ = AccountPlan::Unknown;
     json_t* ClientContext() const;
     std::vector<std::string> ProxyHeaders() const;
     std::string HostOf(const std::string& url) const;

@@ -28,6 +28,19 @@ struct Game
     // Renseignés par la fiche du jeu, nécessaires au lancement.
     std::string play_token;
     std::string product_stage = "Release";
+    // Étiquette d'offre affichée par Luna sur la tuile (ex. « Inclus avec Luna Premium »)
+    // et son icône ; premium_only quand elle désigne l'abonnement Luna Premium.
+    std::string offer_tag;
+    std::string offer_icon;
+    bool premium_only = false;
+};
+
+// Abonnement Luna du compte, lu dans le menu du joueur (customerPlanStatus).
+enum class AccountPlan
+{
+    Unknown,
+    Standard,   // jeux inclus avec Prime
+    Premium,    // Luna Premium (anciennement Luna+) : tout le catalogue
 };
 
 // Deux tuiles désignent le même jeu si leur ASIN ou leur titre normalisé (sans casse,

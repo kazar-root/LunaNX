@@ -2,10 +2,10 @@
   <img src="resources/img/lunanx_logo.png" width="220" alt="LunaNX logo">
 </p>
 
-<h1 align="center">LunaNX v2.0.2 — Amazon Luna on Nintendo Switch</h1>
+<h1 align="center">LunaNX v2.1.0 — Amazon Luna on Nintendo Switch</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.2-7c5cff" alt="Version 2.0.2">
+  <img src="https://img.shields.io/badge/version-2.1.0-7c5cff" alt="Version 2.1.0">
   <img src="https://img.shields.io/badge/platform-Nintendo%20Switch%20(homebrew)-e60012" alt="Nintendo Switch homebrew">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License GPL-3.0">
 </p>
@@ -36,6 +36,19 @@ library, and streams the game to the console with your controller as the input d
 > sponsored by Amazon or Nintendo. Amazon Luna and Nintendo Switch are trademarks of their
 > respective owners. You need your own Amazon account with access to Luna; the games available
 > depend on your subscription and your country.
+
+## What's new in v2.1.0
+
+**A redesigned home screen.** Your games are now shown in an animated carousel over the artwork
+of the selected game, with its details and a large **PLAY** button below. The header gives you
+the sections (All games, Continue, Top 10, Luna Premium), search, your account and a status
+pill with the time, battery, network and your Luna subscription.
+
+**Only the games of your subscription.** LunaNX reads your Luna subscription and shows the
+games included in it. Luna Premium games carry a gold badge; if your account does not have
+Luna Premium, they are grouped in a separate **Luna Premium** section with a padlock.
+
+See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ## What's new in v2.0.2
 
@@ -122,12 +135,13 @@ next versions.
   at first launch.
 - **Interface in 11 languages**: Deutsch, English, Español, Français, Italiano, Nederlands,
   Polski, Português, Русский, Svenska, 简体中文.
-- **Luna library**, loaded automatically:
-  - **Featured** banner,
-  - **Continue playing** (your last 10 games launched from LunaNX),
+- **Luna library** in an animated carousel over the artwork of the selected game, loaded
+  automatically:
+  - **All games** of your subscription, explored live, starting with Luna's featured game,
+  - **Continue** (your last 10 games launched from LunaNX),
   - **Top 10** (current Luna ranking, when Luna provides it for your account),
-  - **All games**: the complete catalog, explored live, shown as pages of 10 covers,
-  - optional **simple list** view.
+  - **Luna Premium** games, grouped separately when your account does not include them,
+  - **search** by title, and an optional **simple list** view.
 - **Game streaming**: 720p at 60 fps, H.264 video, stereo audio, with bitrate adapted to your
   network.
 - **Automatic server selection** based on measured latency (a server region can also be chosen
@@ -165,7 +179,8 @@ See **[INSTALLATION.md](INSTALLATION.md)** for step-by-step instructions. In sho
 ## Usage
 
 1. Your Luna library appears after sign-in.
-2. Move with the D-pad or the left stick, then press **A** on a cover to start the game.
+2. Move with the D-pad or the left stick, then press **A** on a cover (or **PLAY**) to start
+   the game.
 3. To leave a game, press **ZL + ZR + −** at the same time.
 
 | Action | Button |
@@ -173,7 +188,11 @@ See **[INSTALLATION.md](INSTALLATION.md)** for step-by-step instructions. In sho
 | Launch a game | A on a cover |
 | Settings | **Settings** button (top right) or X |
 | Refresh the library | **Refresh** button or Y |
-| Previous / next page of "All games" | L / R |
+| Previous / next page | L / R |
+| Previous / next section | ZL / ZR |
+| Main menu | − or the **☰** button |
+| Search | **Search** button |
+| Clear the search / back to All games | B |
 | Quit LunaNX (library) | + |
 | Start / Xbox button (in game) | + short press / long press |
 | Left stick (in game) | left stick or D-pad |

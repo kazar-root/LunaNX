@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.1.0
+
+Redesigned home screen, in the style of NxNow.
+
+**New interface**
+- Games are shown in an animated carousel: the selected cover is enlarged and highlighted, and
+  the artwork of the selected game fills the background with a cross-fade.
+- Under the carousel: title, publisher, genres, age rating and what the game is included in,
+  with a large **PLAY** button.
+- New header with round buttons (Main menu, All games, Continue, Top 10, Luna Premium, Search,
+  Account, Settings) and a status pill: time, battery, network and your Luna subscription.
+- Footer with the version and the button hints of the focused element.
+- New interface font (Nunito) and a new color palette; sign-in screens restyled to match.
+- Search: filter the games of the current section by title.
+
+**Games of your subscription**
+- LunaNX reads your Luna subscription from your account and shows the games included in it.
+  Luna Premium games are marked with a gold badge. If your account does not have Luna Premium,
+  they are grouped in the separate **Luna Premium** section, with a padlock; you can still try
+  to launch one.
+- If Luna does not report the subscription, all games are shown, as before.
+
+**Controls**
+- L / R: previous / next page. ZL / ZR: previous / next section. −: main menu. B: clear the
+  search or go back to All games. + still quits LunaNX.
+
 ## v2.0.2
 
 Update that takes user feedback and the user experience into account.
